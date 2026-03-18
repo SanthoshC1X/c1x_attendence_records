@@ -299,6 +299,11 @@ async def dashboard_attendance(
     return data
 
 
+@app.get("/")
+def root():
+    return {"status": "C1X Attendance API is running"}
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
