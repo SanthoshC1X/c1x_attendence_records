@@ -13,10 +13,30 @@ One-time setup (takes ~5 minutes):
 """
 
 import re
+import time
 import requests
 from typing import Optional
 
 _BASE = "https://sheets.googleapis.com/v4/spreadsheets"
+
+# ── Rate limiter: max 55 requests per 60 seconds (Google limit is 60) ────────
+_request_times: list[float] = []
+_RATE_LIMIT = 55
+_RATE_WINDOW = 60
+
+
+def _rate_limit():
+    """Sleep if needed to stay under Google Sheets API quota."""
+    now = time.time()
+    # Remove timestamps older than the window
+    while _request_times and _request_times[0] < now - _RATE_WINDOW:
+        _request_times.pop(0)
+    if len(_request_times) >= _RATE_LIMIT:
+        wait = _request_times[0] + _RATE_WINDOW - now + 0.5
+        if wait > 0:
+            print(f"[sheets] Rate limit: waiting {wait:.1f}s")
+            time.sleep(wait)
+    _request_times.append(time.time())
 
 
 def extract_sheet_id(url_or_id: str) -> str:
@@ -30,6 +50,7 @@ def get_sheet_tabs(sheet_id: str, api_key: str) -> list[dict]:
     Returns list of {name, gid} for all tabs in a spreadsheet.
     Raises ValueError on bad API key or inaccessible sheet.
     """
+    _rate_limit()
     resp = requests.get(
         f"{_BASE}/{sheet_id}",
         params={"key": api_key, "fields": "sheets.properties"},
@@ -64,6 +85,7 @@ def get_sheet_values(sheet_id: str, api_key: str, sheet_name: str) -> list[list]
     Each row may be shorter than the header row if trailing cells are empty
     (Google Sheets omits trailing empty cells).
     """
+    _rate_limit()
     safe_name = sheet_name.replace("'", "\\'")
     resp = requests.get(
         f"{_BASE}/{sheet_id}/values/'{safe_name}'!A:Z",
@@ -74,6 +96,58 @@ def get_sheet_values(sheet_id: str, api_key: str, sheet_name: str) -> list[list]
         return []
     resp.raise_for_status()
     return resp.json().get("values", [])
+
+
+def batch_get_sheet_values(sheet_id: str, api_key: str, sheet_names: list[str]) -> dict[str, list[list]]:
+    """
+    Fetch multiple tabs in batches using batchGet API.
+    Returns {tab_name: rows} dict. Much more efficient than individual calls.
+    Google allows ~50 ranges per batchGet call.
+    """
+    BATCH_SIZE = 40  # stay well under URL length limits
+    result: dict[str, list[list]] = {}
+
+    for i in range(0, len(sheet_names), BATCH_SIZE):
+        batch = sheet_names[i:i + BATCH_SIZE]
+        ranges = []
+        for name in batch:
+            safe = name.replace("'", "\\'")
+            ranges.append(f"'{safe}'!A:Z")
+
+        _rate_limit()
+        resp = requests.get(
+            f"{_BASE}/{sheet_id}/values:batchGet",
+            params={
+                "key": api_key,
+                "ranges": ranges,
+                "valueRenderOption": "FORMATTED_VALUE",
+            },
+            timeout=60,
+        )
+        if resp.status_code == 429:
+            # Back off and retry once
+            print(f"[sheets] 429 on batchGet, waiting 30s...")
+            time.sleep(30)
+            _rate_limit()
+            resp = requests.get(
+                f"{_BASE}/{sheet_id}/values:batchGet",
+                params={
+                    "key": api_key,
+                    "ranges": ranges,
+                    "valueRenderOption": "FORMATTED_VALUE",
+                },
+                timeout=60,
+            )
+        resp.raise_for_status()
+
+        value_ranges = resp.json().get("valueRanges", [])
+        for j, vr in enumerate(value_ranges):
+            result[batch[j]] = vr.get("values", [])
+
+        if i + BATCH_SIZE < len(sheet_names):
+            print(f"[sheets] Fetched {min(i + BATCH_SIZE, len(sheet_names))}/{len(sheet_names)} tabs...")
+
+    return result
 
 
 def validate_connection(att_sheet_id: str, leave_sheet_id: Optional[str], api_key: str) -> dict:

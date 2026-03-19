@@ -1053,7 +1053,7 @@ def build_dashboard_data_from_google_sheets(
     Returns:
         Same structure as build_dashboard_data()
     """
-    from backend.sheets_fetcher import get_sheet_tabs, get_sheet_values
+    from backend.sheets_fetcher import get_sheet_tabs, get_sheet_values, batch_get_sheet_values
 
     errors: list[str] = []
     employees: dict[str, dict] = {}
@@ -1072,18 +1072,25 @@ def build_dashboard_data_from_google_sheets(
             "employees": [],
         }
 
-    # ── Step 2: parse each date tab ──────────────────────────────────────────
+    # ── Step 2: filter valid date tabs and batch-fetch all at once ───────────
+    valid_tabs: list[tuple[str, str]] = []  # (tab_name, date_str)
     for tab in att_tabs:
         tab_name = tab["name"].strip()
         try:
             sheet_date = datetime.strptime(tab_name, "%d-%m-%Y")
             date_str = sheet_date.strftime("%Y-%m-%d")
+            valid_tabs.append((tab_name, date_str))
         except ValueError:
             errors.append(f"Skipped tab '{tab_name}': not a valid DD-MM-YYYY date")
-            continue
 
+    # Batch fetch all attendance tabs (uses batchGet — ~10 API calls instead of ~365)
+    att_tab_names = [t[0] for t in valid_tabs]
+    all_att_data = batch_get_sheet_values(att_sheet_id, api_key, att_tab_names) if att_tab_names else {}
+
+    # ── Step 3: parse each date tab from batch results ───────────────────────
+    for tab_name, date_str in valid_tabs:
         all_dates.append(date_str)
-        rows = get_sheet_values(att_sheet_id, api_key, tab_name)
+        rows = all_att_data.get(tab_name, [])
 
         # Data starts at row 8 (0-indexed: index 7), same layout as Excel
         for row in rows[7:] if len(rows) > 7 else []:
@@ -1136,7 +1143,7 @@ def build_dashboard_data_from_google_sheets(
             "employees": [],
         }
 
-    # ── Step 3: parse leave sheet ────────────────────────────────────────────
+    # ── Step 4: parse leave sheet ────────────────────────────────────────────
     leave_records: dict[str, dict[str, str]] = {}
     leave_employees: dict[str, dict] = {}
     year = datetime.strptime(all_dates[0], "%Y-%m-%d").year
@@ -1148,14 +1155,21 @@ def build_dashboard_data_from_google_sheets(
             errors.append(f"Cannot access leave sheet: {e}")
             leave_tabs = []
 
+        # Filter valid month tabs and batch-fetch all at once
+        valid_leave_tabs: list[tuple[str, int]] = []  # (tab_name, month_num)
         for tab in leave_tabs:
             clean_name = tab["name"].strip().lower()
             month_num = MONTH_MAP.get(clean_name)
             if month_num is None:
                 errors.append(f"Leave sheet: skipped tab '{tab['name']}' (not a month name)")
-                continue
+            else:
+                valid_leave_tabs.append((tab["name"], month_num))
 
-            rows = get_sheet_values(leave_sheet_id, api_key, tab["name"])
+        leave_tab_names = [t[0] for t in valid_leave_tabs]
+        all_leave_data = batch_get_sheet_values(leave_sheet_id, api_key, leave_tab_names) if leave_tab_names else {}
+
+        for tab_name, month_num in valid_leave_tabs:
+            rows = all_leave_data.get(tab_name, [])
             if not rows:
                 continue
 
