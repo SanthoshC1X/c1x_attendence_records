@@ -121,9 +121,9 @@ async def _reload_from_sheets(att_id: str, leave_id: str, api_key: str) -> bool:
 
 
 async def _sheets_poll_loop() -> None:
-    """Background task: poll Google Sheets every 5 minutes for changes."""
+    """Background task: poll Google Sheets every 10 minutes for changes."""
     while True:
-        await asyncio.sleep(300)
+        await asyncio.sleep(600)
         cfg = _read_config()
         if _is_sheets_mode(cfg):
             att_id   = sheets_fetcher.extract_sheet_id(cfg["admin_attendance_sheet_id"])
@@ -160,7 +160,7 @@ async def lifespan(app: FastAPI):
         att_id   = sheets_fetcher.extract_sheet_id(cfg["admin_attendance_sheet_id"])
         leave_id = sheets_fetcher.extract_sheet_id(cfg.get("admin_leave_sheet_id", ""))
         api_key  = cfg["google_api_key"].strip()
-        print(f"[startup] Google Sheets mode — att:{att_id[:12]}... polling every 5 min")
+        print(f"[startup] Google Sheets mode — att:{att_id[:12]}... polling every 10 min")
         asyncio.ensure_future(_reload_from_sheets(att_id, leave_id, api_key))
         asyncio.ensure_future(_sheets_poll_loop())
     else:
