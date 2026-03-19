@@ -23,8 +23,10 @@ export function formatHours(minutes: number): string {
 export function getStatusLabel(entry: Pick<DailyEntry | WeekDay, "status" | "status_type" | "leave_subtype">): string {
   if (entry.status_type === "leave" && entry.leave_subtype)
     return entry.leave_subtype.toUpperCase();
-  if (entry.status_type === "half_leave" && entry.leave_subtype)
-    return entry.leave_subtype === "half_cl" ? "Half CL" : "Half SL";
+  if (entry.status_type === "half_leave" && entry.leave_subtype) {
+    const halfLabels: Record<string, string> = { half_cl: "Half CL", half_sl: "Half SL", half_wfh: "Half WFH", half_pl: "Half PL", half_comp: "Half Comp Off" };
+    return halfLabels[entry.leave_subtype] || entry.leave_subtype;
+  }
   return entry.status;
 }
 
