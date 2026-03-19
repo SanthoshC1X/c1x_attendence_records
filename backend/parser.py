@@ -50,7 +50,7 @@ MONTH_MAP = {
 }
 
 # Leave status codes
-LEAVE_STATUSES = {"WFH", "CL", "SL", "PL", "COMP OFF", "1/2CL", "1/2SL", "HOLIDAY", "LWD"}
+LEAVE_STATUSES = {"WFH", "CL", "SL", "PL", "COMP OFF", "1/2CL", "1/2SL", "1/2WFH", "1/2PL", "1/2COMP", "HOLIDAY", "LWD"}
 
 
 def parse_time_value(value) -> Optional[str]:
@@ -214,6 +214,12 @@ def parse_leave_file(file_bytes: bytes, year: int) -> tuple[dict, dict, list]:
                     status = "1/2CL"
                 elif status in ("1/2 SL", "HALF SL", "½SL"):
                     status = "1/2SL"
+                elif status in ("1/2 WFH", "HALF WFH", "½WFH"):
+                    status = "1/2WFH"
+                elif status in ("1/2 PL", "HALF PL", "½PL"):
+                    status = "1/2PL"
+                elif status in ("1/2 COMP OFF", "1/2COMP OFF", "1/2 COMP", "HALF COMP OFF", "HALF COMP", "½COMP"):
+                    status = "1/2COMP"
 
                 if status in LEAVE_STATUSES:
                     date_str = f"{year}-{month_num:02d}-{day:02d}"
@@ -575,9 +581,11 @@ def transform_excel(attendance_bytes: bytes, leave_bytes: Optional[bytes] = None
                 for c in range(3):
                     ws.cell(row=row_num, column=start_col + c).fill = comp_off_fill
 
-            elif leave_status in ("1/2CL", "1/2SL"):
+            elif leave_status in ("1/2CL", "1/2SL", "1/2WFH", "1/2PL", "1/2COMP"):
                 # Half day leave — show status + punch data if exists
                 leave_days += 0.5
+                half_labels = {"1/2CL": "½CL", "1/2SL": "½SL", "1/2WFH": "½WFH", "1/2PL": "½PL", "1/2COMP": "½COMP"}
+                half_label = half_labels.get(leave_status, leave_status)
                 if has_punch:
                     record_count += 1
                     mins = rec["total_minutes"] if rec["total_minutes"] and rec["total_minutes"] > 0 else 0
@@ -586,10 +594,9 @@ def transform_excel(attendance_bytes: bytes, leave_bytes: Optional[bytes] = None
                     weekday_days += 1
                     ws.cell(row=row_num, column=start_col, value=rec["in_time"] or "")
                     ws.cell(row=row_num, column=start_col + 1, value=rec["out_time"] or "")
-                    half_label = "½CL" if leave_status == "1/2CL" else "½SL"
                     ws.cell(row=row_num, column=start_col + 2, value=f"{minutes_to_hhmm(mins)} ({half_label})")
                 else:
-                    cell = ws.cell(row=row_num, column=start_col, value=leave_status.replace("1/2", "½"))
+                    cell = ws.cell(row=row_num, column=start_col, value=half_label)
                     cell.font = half_day_font
                     ws.merge_cells(start_row=row_num, start_column=start_col, end_row=row_num, end_column=start_col + 2)
                 for c in range(3):
@@ -903,11 +910,12 @@ def build_dashboard_data(attendance_bytes: bytes, leave_bytes: Optional[bytes] =
                 total_hhmm = ""
                 total_minutes = None
 
-            elif leave_status in ("1/2CL", "1/2SL"):
+            elif leave_status in ("1/2CL", "1/2SL", "1/2WFH", "1/2PL", "1/2COMP"):
                 leave_days += 0.5
                 status_label = leave_status
                 status_type = "half_leave"
-                leave_subtype = "half_cl" if leave_status == "1/2CL" else "half_sl"
+                half_subtype_map = {"1/2CL": "half_cl", "1/2SL": "half_sl", "1/2WFH": "half_wfh", "1/2PL": "half_pl", "1/2COMP": "half_comp"}
+                leave_subtype = half_subtype_map.get(leave_status, "half_leave")
                 if has_punch:
                     record_count += 1
                     mins = total_minutes if total_minutes and total_minutes > 0 else 0
@@ -1244,6 +1252,12 @@ def build_dashboard_data_from_google_sheets(
                         status = "1/2CL"
                     elif status in ("1/2 SL", "HALF SL", "½SL"):
                         status = "1/2SL"
+                    elif status in ("1/2 WFH", "HALF WFH", "½WFH"):
+                        status = "1/2WFH"
+                    elif status in ("1/2 PL", "HALF PL", "½PL"):
+                        status = "1/2PL"
+                    elif status in ("1/2 COMP OFF", "1/2COMP OFF", "1/2 COMP", "HALF COMP OFF", "HALF COMP", "½COMP"):
+                        status = "1/2COMP"
 
                     if status in LEAVE_STATUSES:
                         leave_records[emp_id][f"{year}-{month_num:02d}-{day:02d}"] = status
@@ -1324,11 +1338,12 @@ def build_dashboard_data_from_google_sheets(
                 total_hhmm = ""
                 total_minutes = None
 
-            elif leave_status in ("1/2CL", "1/2SL"):
+            elif leave_status in ("1/2CL", "1/2SL", "1/2WFH", "1/2PL", "1/2COMP"):
                 leave_days += 0.5
                 status_label = leave_status
                 status_type = "half_leave"
-                leave_subtype = "half_cl" if leave_status == "1/2CL" else "half_sl"
+                half_subtype_map = {"1/2CL": "half_cl", "1/2SL": "half_sl", "1/2WFH": "half_wfh", "1/2PL": "half_pl", "1/2COMP": "half_comp"}
+                leave_subtype = half_subtype_map.get(leave_status, "half_leave")
                 if has_punch:
                     record_count += 1
                     mins = total_minutes if total_minutes and total_minutes > 0 else 0
