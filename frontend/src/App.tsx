@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import axios from "axios";
 import type { AppPage, AnalyticsData, DashboardData, PeriodMode, PeriodState, PeriodActions } from "./types";
 import { useWebSocket } from "./hooks/useWebSocket";
-import LoginPage, { type UserRole } from "./pages/LoginPage";
+import LoginPage from "./pages/LoginPage";
 import AdminSetupPage from "./pages/AdminSetupPage";
 import AppShell from "./components/AppShell";
 import OverviewPage from "./pages/OverviewPage";
@@ -14,14 +14,13 @@ import MissPunchPage from "./pages/MissPunchPage";
 
 const _backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 const WS_URL = _backendBase.replace(/^http/, "ws") + "/ws/live";
-const SESSION_KEY = "c1x_role";
+const SESSION_KEY = "c1x_session";
 
 type AppStage = "login" | "admin-setup" | "admin-loading" | "dashboard";
 
 export default function App() {
-  const savedRole = localStorage.getItem(SESSION_KEY) as UserRole | null;
-  const [stage, setStage]       = useState<AppStage>(savedRole ? "admin-loading" : "login");
-  const [userRole, setUserRole] = useState<UserRole | null>(savedRole);
+  const hasSession = localStorage.getItem(SESSION_KEY) === "1";
+  const [stage, setStage] = useState<AppStage>(hasSession ? "admin-loading" : "login");
 
   // Data
   const [dashboard, setDashboard]         = useState<DashboardData | null>(null);
@@ -105,25 +104,20 @@ export default function App() {
       if (data?.event === "data_updated") {
         setLiveUpdateBanner(true);
         setTimeout(() => setLiveUpdateBanner(false), 4000);
-        if (userRole === "admin" || userRole === "hr") {
-          refreshFromCache();
-        }
+        refreshFromCache();
       }
-    }, [userRole, refreshFromCache]),
+    }, [refreshFromCache]),
     stage === "dashboard"
   );
 
-  // ── Login handler — both roles go straight to dashboard ──────────────────
-
   // Auto-load dashboard on refresh if session exists
   useEffect(() => {
-    if (savedRole) loadAdminDashboard();
+    if (hasSession) loadAdminDashboard();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleLogin = useCallback(async (role: UserRole) => {
-    localStorage.setItem(SESSION_KEY, role);
-    setUserRole(role);
+  const handleLogin = useCallback(async () => {
+    localStorage.setItem(SESSION_KEY, "1");
     await loadAdminDashboard();
   }, [loadAdminDashboard]);
 
@@ -146,14 +140,16 @@ export default function App() {
     }
   };
 
-  // ── Export CSV (combines attendance + leave from Google Sheets cache) ─────
+  // ── Export Excel (combines attendance + leave from Google Sheets cache) ───
 
   const handleDownload = async () => {
     try {
       const res = await axios.get("/api/admin/export", { responseType: "blob" });
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([res.data], { type: "text/csv" }));
-      a.download = "Attendance_Report.csv";
+      a.href = URL.createObjectURL(new Blob([res.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }));
+      a.download = "Attendance_Report.xlsx";
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     } catch {
@@ -166,7 +162,6 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem(SESSION_KEY);
     setStage("login");
-    setUserRole(null);
     setDashboard(null);
     setAnalyticsData(null);
     setError(null);
@@ -240,7 +235,6 @@ export default function App() {
       activePeriod={activePeriod}
       dashboard={dashboard}
       liveStatus={wsStatus}
-      userRole={userRole ?? "hr"}
       periodState={periodState}
       periodActions={periodActions}
       availableYears={availableYears}

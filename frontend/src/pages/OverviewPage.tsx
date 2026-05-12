@@ -89,21 +89,37 @@ export default function OverviewPage({
   const isMissPunch = (d: { in_time: string; out_time: string; is_weekend?: boolean }) =>
     !d.is_weekend && d.in_time && d.out_time && d.in_time === d.out_time && d.in_time !== "00:00:00";
 
+  // Format a possibly-fractional day count as "1½" / "½" / "2" rather than "1.5" / "0.5" / "2".
+  const fmtDays = (v: number): string => {
+    if (v <= 0) return "0";
+    const whole = Math.floor(v);
+    const hasHalf = v % 1 !== 0;
+    if (!hasHalf) return String(whole);
+    return whole > 0 ? `${whole}½` : "½";
+  };
+
   const getPeriodStats = (emp: EmployeeDashboard) => {
-    const days      = emp.daily.filter(d => dateInPeriod(d.date));
+    const days = emp.daily.filter(d => dateInPeriod(d.date));
+    // Half-day events per subtype (each event = 0.5 of a day)
+    const halfCl   = days.filter(d => d.leave_subtype === "half_cl").length;
+    const halfSl   = days.filter(d => d.leave_subtype === "half_sl").length;
+    const halfPl   = days.filter(d => d.leave_subtype === "half_pl").length;
+    const halfWfh  = days.filter(d => d.leave_subtype === "half_wfh").length;
+    const halfComp = days.filter(d => d.leave_subtype === "half_comp").length;
+    // Day-equivalents: full + 0.5 × half
     const absent    = days.filter(d => d.status_type === "absent").length;
-    const wfh       = days.filter(d => d.status_type === "wfh").length;
-    const cl        = days.filter(d => d.leave_subtype === "cl").length;
-    const sl        = days.filter(d => d.leave_subtype === "sl").length;
-    const pl        = days.filter(d => d.leave_subtype === "pl").length;
-    const comp      = days.filter(d => d.status_type === "comp_off").length;
-    const half      = days.filter(d => d.status_type === "half_leave").length;
+    const wfh       = days.filter(d => d.status_type === "wfh").length        + halfWfh  * 0.5;
+    const cl        = days.filter(d => d.leave_subtype === "cl").length       + halfCl   * 0.5;
+    const sl        = days.filter(d => d.leave_subtype === "sl").length       + halfSl   * 0.5;
+    const pl        = days.filter(d => d.leave_subtype === "pl").length       + halfPl   * 0.5;
+    const comp      = days.filter(d => d.status_type === "comp_off").length   + halfComp * 0.5;
+    const half      = days.filter(d => d.status_type === "half_leave").length; // total half-day events (informational)
     const misspunch = days.filter(d => isMissPunch(d)).length;
     const working   = days.filter(d => d.status_type === "present" || d.status_type === "wfh" || d.status_type === "half_leave").length;
     const totalMins = days.reduce((s, d) => s + (d.total_minutes ?? 0), 0);
     const hrs  = Math.floor(totalMins / 60);
     const mins = totalMins % 60;
-    return { absent, wfh, cl, sl, pl, comp, half, misspunch, working,
+    return { absent, wfh, cl, sl, pl, comp, half, halfCl, halfSl, halfPl, halfWfh, halfComp, misspunch, working,
       totalHours: totalMins > 0 ? `${hrs}:${String(mins).padStart(2, "0")}` : "—",
       hasData: days.length > 0 };
   };
@@ -131,7 +147,8 @@ export default function OverviewPage({
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const topLeaveEmployees = useMemo(() => {
-    const tot = (e: EmployeeDashboard) => { const p = getPeriodStats(e); return p.cl+p.sl+p.pl+p.comp+p.half+p.wfh+p.absent; };
+    // cl/sl/pl/comp/wfh already include half-day contributions at 0.5 — don't add p.half again
+    const tot = (e: EmployeeDashboard) => { const p = getPeriodStats(e); return p.cl+p.sl+p.pl+p.comp+p.wfh+p.absent; };
     return [...employees].filter(e => tot(e) > 0).sort((a, b) => tot(b) - tot(a));
   }, [employees, periodMode, selYear, selMonth, clampedWeek, customFrom, customTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -164,6 +181,11 @@ export default function OverviewPage({
       pl:         sum(p => p.pl),         plEmp:         cnt(p => p.pl),
       comp:       sum(p => p.comp),       compEmp:       cnt(p => p.comp),
       half:       sum(p => p.half),       halfEmp:       cnt(p => p.half),
+      halfCl:     sum(p => p.halfCl),
+      halfSl:     sum(p => p.halfSl),
+      halfPl:     sum(p => p.halfPl),
+      halfWfh:    sum(p => p.halfWfh),
+      halfComp:   sum(p => p.halfComp),
       misspunch:  sum(p => p.misspunch),  misspunchEmp:  cnt(p => p.misspunch),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,7 +195,9 @@ export default function OverviewPage({
     absent: periodAgg.absent, wfh: periodAgg.wfh, cl: periodAgg.cl,
     sl: periodAgg.sl, pl: periodAgg.pl, comp_off: periodAgg.comp, half_leave: periodAgg.half,
   };
-  const totalLeaveEvents = Object.values(leaveCountByKey).reduce((a, b) => a + b, 0);
+  // Exclude half_leave from the total: half-day events are already in cl/sl/pl/wfh/comp at 0.5 each.
+  const totalLeaveEvents = (["absent", "wfh", "cl", "sl", "pl", "comp_off"] as const)
+    .reduce((s, k) => s + (leaveCountByKey[k] ?? 0), 0);
 
   const DONUT_R    = 70;
   const DONUT_CIRC = 2 * Math.PI * DONUT_R;
@@ -250,7 +274,7 @@ export default function OverviewPage({
       });
     }
     if (sortKey === "absent")     list.sort((a, b) => getPeriodStats(b).absent  - getPeriodStats(a).absent);
-    else if (sortKey === "leave") list.sort((a, b) => { const sa = getPeriodStats(a), sb = getPeriodStats(b); return (sb.cl+sb.sl+sb.pl+sb.comp+sb.half) - (sa.cl+sa.sl+sa.pl+sa.comp+sa.half); });
+    else if (sortKey === "leave") list.sort((a, b) => { const sa = getPeriodStats(a), sb = getPeriodStats(b); return (sb.cl+sb.sl+sb.pl+sb.comp) - (sa.cl+sa.sl+sa.pl+sa.comp); });
     else if (sortKey === "wfh")   list.sort((a, b) => getPeriodStats(b).wfh     - getPeriodStats(a).wfh);
     else if (sortKey === "hours") list.sort((a, b) => { const m = (e: EmployeeDashboard) => e.daily.filter(d => dateInPeriod(d.date)).reduce((s,d) => s+(d.total_minutes??0),0); return m(b)-m(a); });
     else                          list.sort((a, b) => a.name.localeCompare(b.name));
@@ -276,14 +300,31 @@ export default function OverviewPage({
     ? (analyticsData?.filtered_data?.employees?.find(e => e.emp_id === selectedEmployee.emp_id)?.week_breakdown ?? null)
     : null;
 
+  // Tooltip describing the half-day-events breakdown by subtype (e.g. "2 ½CL · 1 ½WFH")
+  const halfBreakdownTip = (() => {
+    const parts = [
+      periodAgg.halfWfh  > 0 && `${periodAgg.halfWfh} ½WFH`,
+      periodAgg.halfCl   > 0 && `${periodAgg.halfCl} ½CL`,
+      periodAgg.halfSl   > 0 && `${periodAgg.halfSl} ½SL`,
+      periodAgg.halfPl   > 0 && `${periodAgg.halfPl} ½PL`,
+      periodAgg.halfComp > 0 && `${periodAgg.halfComp} ½Comp`,
+    ].filter(Boolean);
+    return parts.length ? parts.join(" · ") : undefined;
+  })();
+
   // ── KPI cards (period-filtered) ──────────────────────────────────────────
-  const kpiCards = [
+  // Each card's `count` is a day-equivalent (full + 0.5 × half) — fmtDays renders "1½" instead of "1.5".
+  // The Half Day card is special: its count is the *number of half-day events*, not day-equivalents.
+  const kpiCards: Array<{
+    label: string; count: number | string; emp: number | null; sub: string;
+    cls: string; labelCls: string; countCls: string; empCls: string; title?: string;
+  }> = [
     { label: "Total Employees", count: dashboard.employee_count, emp: null,                sub: `${dashboard.dates_processed.length} days tracked`, cls: "bg-indigo-600 text-white",                labelCls: "text-indigo-200",  countCls: "text-white",      empCls: "text-indigo-200"  },
     { label: "Absent Days",     count: periodAgg.absent,         emp: periodAgg.absentEmp, sub: "days", cls: "bg-red-50 border border-red-200",        labelCls: "text-red-400",     countCls: "text-red-600",    empCls: "text-red-400"     },
     { label: "WFH Days",        count: periodAgg.wfh,            emp: periodAgg.wfhEmp,    sub: "days", cls: "bg-teal-50 border border-teal-200",      labelCls: "text-teal-400",    countCls: "text-teal-600",   empCls: "text-teal-400"    },
     { label: "Casual Leave",    count: periodAgg.cl,             emp: periodAgg.clEmp,     sub: "days", cls: "bg-blue-50 border border-blue-200",      labelCls: "text-blue-400",    countCls: "text-blue-600",   empCls: "text-blue-400"    },
     { label: "Sick Leave",      count: periodAgg.sl,             emp: periodAgg.slEmp,     sub: "days", cls: "bg-purple-50 border border-purple-200",  labelCls: "text-purple-400",  countCls: "text-purple-600", empCls: "text-purple-400"  },
-    { label: "Half Day",        count: periodAgg.half,           emp: periodAgg.halfEmp,   sub: "days", cls: "bg-yellow-50 border border-yellow-200",  labelCls: "text-yellow-500",  countCls: "text-yellow-600", empCls: "text-yellow-500"  },
+    { label: "Half Day",        count: periodAgg.half,           emp: periodAgg.halfEmp,   sub: "events", cls: "bg-yellow-50 border border-yellow-200",labelCls: "text-yellow-500",  countCls: "text-yellow-600", empCls: "text-yellow-500", title: halfBreakdownTip },
     { label: "Privilege Leave", count: periodAgg.pl,             emp: periodAgg.plEmp,     sub: "days", cls: "bg-violet-50 border border-violet-200",  labelCls: "text-violet-400",  countCls: "text-violet-600", empCls: "text-violet-400"  },
     { label: "Comp Off",        count: periodAgg.comp,           emp: periodAgg.compEmp,       sub: "days", cls: "bg-amber-50 border border-amber-200",    labelCls: "text-amber-500",   countCls: "text-amber-600",   empCls: "text-amber-500"   },
     { label: "Miss Punch",      count: periodAgg.misspunch,      emp: periodAgg.misspunchEmp,  sub: "days", cls: "bg-orange-50 border border-orange-200",  labelCls: "text-orange-400",  countCls: "text-orange-600",  empCls: "text-orange-400"  },
@@ -319,11 +360,11 @@ export default function OverviewPage({
       {/* ── KPI strip ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-4 lg:grid-cols-8 gap-3">
         {kpiCards.map((card) => (
-          <div key={card.label} className={`rounded-2xl p-4 shadow-sm ${card.cls}`}>
+          <div key={card.label} title={card.title} className={`rounded-2xl p-4 shadow-sm ${card.cls} ${card.title ? "cursor-help" : ""}`}>
             <p className={`text-[9px] font-bold uppercase tracking-widest leading-tight ${card.labelCls}`}>{card.label}</p>
             <div className="flex items-end justify-between mt-2 gap-1">
               <div>
-                <p className={`text-3xl font-black leading-none ${card.countCls}`}>{card.count}</p>
+                <p className={`text-3xl font-black leading-none ${card.countCls}`}>{typeof card.count === "number" ? fmtDays(card.count) : card.count}</p>
                 <p className={`text-[10px] font-semibold mt-1 ${card.labelCls}`}>{card.sub}</p>
               </div>
               {card.emp !== null && (
@@ -345,7 +386,7 @@ export default function OverviewPage({
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-gray-900">Leave Distribution</p>
-              <p className="text-xs text-gray-400 mt-0.5">{totalLeaveEvents} total events across {periodAgg.empCount} employees</p>
+              <p className="text-xs text-gray-400 mt-0.5">{fmtDays(totalLeaveEvents)} day-equivalents across {periodAgg.empCount} employees</p>
             </div>
             {leaveFilter !== "all" ? (
               <button
@@ -391,8 +432,8 @@ export default function OverviewPage({
                       )
                     )
                   : null}
-                <text x="90" y="80" textAnchor="middle" fontSize="32" fontWeight="800" fill="#111827">{totalLeaveEvents}</text>
-                <text x="90" y="98" textAnchor="middle" fontSize="7.5" fill="#9ca3af" style={{ letterSpacing: 2 }}>TOTAL EVENTS</text>
+                <text x="90" y="80" textAnchor="middle" fontSize="32" fontWeight="800" fill="#111827">{fmtDays(totalLeaveEvents)}</text>
+                <text x="90" y="98" textAnchor="middle" fontSize="7.5" fill="#9ca3af" style={{ letterSpacing: 2 }}>TOTAL DAYS</text>
               </svg>
 
               {/* Legend */}
@@ -418,7 +459,7 @@ export default function OverviewPage({
                     >
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: lt.color }} />
                       <span className={`text-xs font-semibold flex-1 ${isActive ? "text-white" : "text-gray-700"}`}>{lt.fullLabel}</span>
-                      <span className={`text-sm font-black ${isActive ? "text-white" : "text-gray-900"}`}>{count}</span>
+                      <span className={`text-sm font-black ${isActive ? "text-white" : "text-gray-900"}`}>{fmtDays(count)}</span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold min-w-[44px] text-center ${
                         isActive ? "bg-white/15 text-white/80" : "bg-gray-100 text-gray-500"
                       }`}>{empCount} emp</span>
@@ -447,8 +488,8 @@ export default function OverviewPage({
                       <p className="text-[11px] text-gray-400 mt-0.5 font-medium">{panelEmployees.length} employees affected</p>
                     </div>
                     <div className="text-right shrink-0 pl-3 border-l border-gray-200/60">
-                      <p className="text-2xl font-black leading-none" style={{ color: activeCfg.color }}>{totalDays}</p>
-                      <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-wide">Total Days</p>
+                      <p className="text-2xl font-black leading-none" style={{ color: activeCfg.color }}>{fmtDays(totalDays)}</p>
+                      <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-wide">{leaveFilter === "half_leave" ? "Events" : "Total Days"}</p>
                     </div>
                   </div>
 
@@ -488,8 +529,8 @@ export default function OverviewPage({
                             <p className="text-[11px] text-gray-400 truncate mt-0.5">{emp.department || emp.emp_id}</p>
                           </div>
                           <div className="shrink-0 flex flex-col items-end gap-0">
-                            <span className="text-xl font-black leading-none" style={{ color: activeCfg.color }}>{cnt}</span>
-                            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide mt-0.5">DAYS</span>
+                            <span className="text-xl font-black leading-none" style={{ color: activeCfg.color }}>{fmtDays(cnt)}</span>
+                            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide mt-0.5">{leaveFilter === "half_leave" ? "EVENTS" : "DAYS"}</span>
                           </div>
                         </button>
                       );
@@ -598,7 +639,8 @@ export default function OverviewPage({
               <div className="overflow-y-auto divide-y divide-gray-50" style={{ maxHeight: 280, scrollbarGutter: "stable" }}>
                 {topLeaveEmployees.map((emp, idx) => {
                   const ps  = getPeriodStats(emp);
-                  const total = ps.cl + ps.sl + ps.pl + ps.comp + ps.half + ps.wfh + ps.absent;
+                  // cl/sl/pl/comp/wfh already include half-day contributions at 0.5 — don't add ps.half again
+                  const total = ps.cl + ps.sl + ps.pl + ps.comp + ps.wfh + ps.absent;
                   const cl  = ps.cl;
                   const sl  = ps.sl;
                   const wfh = ps.wfh;
@@ -613,13 +655,13 @@ export default function OverviewPage({
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-gray-800 truncate">{emp.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          {wfh > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold">WFH {wfh}</span>}
-                          {cl > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">CL {cl}</span>}
-                          {sl > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">SL {sl}</span>}
+                          {wfh > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold">WFH {fmtDays(wfh)}</span>}
+                          {cl > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">CL {fmtDays(cl)}</span>}
+                          {sl > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">SL {fmtDays(sl)}</span>}
                           {abs > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 font-semibold">Abs {abs}</span>}
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-gray-700 shrink-0">{total}d</span>
+                      <span className="text-xs font-bold text-gray-700 shrink-0">{fmtDays(total)}d</span>
                     </button>
                   );
                 })}
@@ -752,9 +794,22 @@ export default function OverviewPage({
                 filtered.map((emp) => {
                   const ps    = getPeriodStats(emp);
                   const color = avatarColor(emp.emp_id);
-                  const cell  = (v: number, bg: string, text: string) =>
-                    v > 0 ? <span className={`inline-flex w-6 h-6 items-center justify-center rounded-full ${bg} ${text} text-xs font-bold`}>{v}</span>
+                  const cell  = (v: number, bg: string, text: string, title?: string) =>
+                    v > 0 ? <span title={title} className={`inline-flex min-w-[26px] h-6 px-1.5 items-center justify-center rounded-full ${bg} ${text} text-xs font-bold`}>{fmtDays(v)}</span>
                            : <span className="text-gray-200">—</span>;
+                  // Tooltip for a leave-type cell showing the half-day breakdown if any
+                  const tip = (full: number, half: number, label: string) =>
+                    half > 0 ? `${full} full + ${half} half ${label}` : undefined;
+                  // Half Day tooltip combines all five subtypes
+                  const halfTip = ps.half > 0
+                    ? [
+                        ps.halfWfh  && `${ps.halfWfh} ½WFH`,
+                        ps.halfCl   && `${ps.halfCl} ½CL`,
+                        ps.halfSl   && `${ps.halfSl} ½SL`,
+                        ps.halfPl   && `${ps.halfPl} ½PL`,
+                        ps.halfComp && `${ps.halfComp} ½Comp`,
+                      ].filter(Boolean).join(" · ")
+                    : undefined;
                   return (
                     <tr key={emp.emp_id} onClick={() => setSelectedEmployee(emp)} className="hover:bg-indigo-50/40 cursor-pointer transition-colors group">
                       <td className="px-5 py-3">
@@ -771,12 +826,12 @@ export default function OverviewPage({
                       <td className="px-5 py-3 text-xs text-gray-500">{emp.department || "—"}</td>
                       <td className="px-4 py-3 text-center font-medium text-gray-700">{ps.working}</td>
                       <td className="px-4 py-3 text-center font-semibold text-gray-900">{ps.totalHours}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.wfh,  "bg-teal-100",   "text-teal-700")}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.cl,   "bg-blue-100",   "text-blue-700")}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.sl,   "bg-purple-100", "text-purple-700")}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.pl,   "bg-violet-100", "text-violet-700")}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.comp, "bg-amber-100",  "text-amber-700")}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.half, "bg-yellow-100", "text-yellow-700")}</td>
+                      <td className="px-4 py-3 text-center">{cell(ps.wfh,  "bg-teal-100",   "text-teal-700",   tip(ps.wfh  - ps.halfWfh  * 0.5, ps.halfWfh,  "WFH"))}</td>
+                      <td className="px-4 py-3 text-center">{cell(ps.cl,   "bg-blue-100",   "text-blue-700",   tip(ps.cl   - ps.halfCl   * 0.5, ps.halfCl,   "CL"))}</td>
+                      <td className="px-4 py-3 text-center">{cell(ps.sl,   "bg-purple-100", "text-purple-700", tip(ps.sl   - ps.halfSl   * 0.5, ps.halfSl,   "SL"))}</td>
+                      <td className="px-4 py-3 text-center">{cell(ps.pl,   "bg-violet-100", "text-violet-700", tip(ps.pl   - ps.halfPl   * 0.5, ps.halfPl,   "PL"))}</td>
+                      <td className="px-4 py-3 text-center">{cell(ps.comp, "bg-amber-100",  "text-amber-700",  tip(ps.comp - ps.halfComp * 0.5, ps.halfComp, "Comp"))}</td>
+                      <td className="px-4 py-3 text-center">{cell(ps.half, "bg-yellow-100", "text-yellow-700", halfTip)}</td>
                       <td className="px-4 py-3 text-center">{cell(ps.absent, "bg-red-100",  "text-red-700")}</td>
                     </tr>
                   );

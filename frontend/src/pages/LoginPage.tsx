@@ -1,15 +1,11 @@
 import { useState } from "react";
 
-export type UserRole = "admin" | "hr";
-
 interface Props {
-  onLogin: (role: UserRole) => void;
+  onLogin: () => void;
 }
 
-const CREDENTIALS: Record<string, { password: string; role: UserRole }> = {
-  "AdminC1X": { password: "Admin@c1x", role: "admin" },
-  "HR@C1X":   { password: "HR@c1x",    role: "hr" },
-};
+const ADMIN_USERNAME = "AdminC1X";
+const ADMIN_PASSWORD = "Admin@c1x";
 
 export default function LoginPage({ onLogin }: Props) {
   const [username, setUsername] = useState("");
@@ -23,9 +19,8 @@ export default function LoginPage({ onLogin }: Props) {
     setError("");
     setLoading(true);
     setTimeout(() => {
-      const match = CREDENTIALS[username.trim()];
-      if (match && match.password === password) {
-        onLogin(match.role);
+      if (username.trim() === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        onLogin();
       } else {
         setError("Invalid username or password.");
         setLoading(false);
@@ -152,22 +147,6 @@ export default function LoginPage({ onLogin }: Props) {
               )}
             </button>
           </form>
-        </div>
-
-        {/* Role hint cards */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {[
-            { role: "Admin", hint: "Live dashboard · always synced", color: "text-indigo-600", dot: "bg-indigo-500", bg: "bg-white border-indigo-100" },
-            { role: "HR",    hint: "Upload files · run reports",     color: "text-emerald-600", dot: "bg-emerald-500", bg: "bg-white border-emerald-100" },
-          ].map((r) => (
-            <div key={r.role} className={`rounded-2xl border ${r.bg} shadow-sm px-4 py-3`}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`w-1.5 h-1.5 rounded-full ${r.dot}`} />
-                <p className={`text-xs font-bold ${r.color}`}>{r.role}</p>
-              </div>
-              <p className="text-[11px] text-gray-400 leading-snug">{r.hint}</p>
-            </div>
-          ))}
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-5">C1X Attendance Intelligence Platform</p>

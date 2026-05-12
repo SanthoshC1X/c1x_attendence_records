@@ -574,70 +574,370 @@ async def get_cached_dashboard():
 
 
 @app.get("/api/admin/export")
-async def export_dashboard_csv():
-    """
-    Generate a combined CSV report from cached dashboard data (attendance + leave).
-    Works for both Google Sheets mode and Excel file mode.
-    Two sections: Summary (one row per employee) + Daily Detail (one row per employee-day).
-    """
-    import csv
+async def export_dashboard_excel():
+    """Export the full cached attendance dataset as a month-wise Excel workbook."""
     import io
+    from datetime import datetime as _dt
+    from collections import OrderedDict
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
-    cached = database.get_latest_cache_entry()
-    if cached is None:
-        raise HTTPException(status_code=404, detail="No dashboard data available. Load the dashboard first.")
+    dashboard_data = None
+    cfg = _read_config()
 
-    dashboard_data, _ = cached
+    try:
+        if _is_sheets_mode(cfg):
+            att_id = sheets_fetcher.extract_sheet_id(cfg["admin_attendance_sheet_id"])
+            leave_id = sheets_fetcher.extract_sheet_id(cfg.get("admin_leave_sheet_id", ""))
+            dashboard_data = parser.build_dashboard_data_from_google_sheets(
+                att_id,
+                leave_id or None,
+                cfg["google_api_key"],
+            )
+        else:
+            paths = database.get_watch_paths()
+            att_path = paths.get("attendance") or cfg.get("admin_attendance_path", "").strip()
+            leave_path = paths.get("leave") or cfg.get("admin_leave_path", "").strip()
+
+            if att_path and os.path.exists(att_path):
+                with open(att_path, "rb") as f:
+                    attendance_bytes = f.read()
+
+                leave_bytes = None
+                if leave_path and os.path.exists(leave_path):
+                    with open(leave_path, "rb") as f:
+                        leave_bytes = f.read()
+
+                dashboard_data = parser.build_dashboard_data(attendance_bytes, leave_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to rebuild export data: {e}")
+
+    if dashboard_data is None:
+        cached = database.get_latest_cache_entry()
+        if cached is None:
+            raise HTTPException(status_code=404, detail="No dashboard data available. Load the dashboard first.")
+        dashboard_data, _ = cached
+
+    if not dashboard_data.get("dates_processed"):
+        raise HTTPException(
+            status_code=400,
+            detail="Export source has no valid attendance dates. Check the attendance workbook tabs and source configuration.",
+        )
+
     employees = dashboard_data.get("employees", [])
     dates = dashboard_data.get("dates_processed", [])
 
-    output = io.StringIO()
-    writer = csv.writer(output)
+    wb = openpyxl.Workbook()
+    header_fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True, size=10)
+    bold_font = Font(bold=True, size=10)
+    center = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style="thin", color="D1D5DB"),
+        right=Side(style="thin", color="D1D5DB"),
+        top=Side(style="thin", color="D1D5DB"),
+        bottom=Side(style="thin", color="D1D5DB"),
+    )
+    fills = {
+        "present": PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid"),
+        "absent": PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid"),
+        "wfh": PatternFill(start_color="CCFBF1", end_color="CCFBF1", fill_type="solid"),
+        "leave": PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid"),
+        "comp_off": PatternFill(start_color="E9D5FF", end_color="E9D5FF", fill_type="solid"),
+        "half_leave": PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid"),
+        "holiday": PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid"),
+        "weekend": PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid"),
+    }
+    leave_cols = ["WFH", "SL", "CL", "PL", "Comp Off", "Half Day"]
 
-    # ── Section 1: Summary ───────────────────────────────────────────────────
-    writer.writerow(["=== ATTENDANCE SUMMARY ==="])
-    writer.writerow([
-        "EMP ID", "Name", "Department",
-        "Total Hours", "Weekday Hours", "Weekend Hours",
-        "Working Days", "Weekend Days", "WFH Days",
-        "Leave Days", "Absent Days",
-    ])
-    for emp in employees:
-        s = emp["summary"]
-        writer.writerow([
-            emp["emp_id"], emp["name"], emp["department"],
-            s["total_hours"], s["weekday_hours"], s["weekend_hours"],
-            s["working_days"], s["weekend_days"], s["wfh_days"],
-            s["leave_days"], s["absent_days"],
-        ])
+    def status_code(day: dict) -> str:
+        st = day.get("status_type", "")
+        sub = day.get("leave_subtype", "")
+        if st in ("present", "weekend_worked"):
+            return "P"
+        if st == "absent":
+            return "A"
+        if st == "wfh":
+            return "WFH"
+        if st == "half_leave":
+            labels = {"half_cl": "1/2CL", "half_sl": "1/2SL", "half_wfh": "1/2WFH", "half_pl": "1/2PL", "half_comp": "1/2CO"}
+            return labels.get(sub, "1/2")
+        if st == "comp_off":
+            return "CO"
+        if st == "leave":
+            return sub.upper() if sub else "L"
+        if st == "holiday":
+            return "H"
+        if st == "lwd":
+            return "LWD"
+        if st == "miss_punch":
+            return "MP"
+        return day.get("status", "")[:4]
 
-    writer.writerow([])  # blank separator
+    def fill_for(day: dict):
+        st = day.get("status_type", "")
+        if st in ("present", "weekend_worked"):
+            return fills["present"]
+        if st == "absent":
+            return fills["absent"]
+        if st == "wfh":
+            return fills["wfh"]
+        if st == "leave":
+            return fills["leave"]
+        if st == "comp_off":
+            return fills["comp_off"]
+        if st == "half_leave":
+            return fills["half_leave"]
+        if st in ("holiday", "lwd"):
+            return fills["holiday"]
+        if day.get("is_weekend"):
+            return fills["weekend"]
+        return None
 
-    # ── Section 2: Daily Detail ──────────────────────────────────────────────
-    writer.writerow(["=== DAILY ATTENDANCE DETAIL ==="])
-    writer.writerow([
-        "EMP ID", "Name", "Department",
-        "Date", "Day", "Status", "In Time", "Out Time", "Hours",
-    ])
+    def hhmm(total_minutes: int) -> str:
+        hours, mins = divmod(total_minutes, 60)
+        return f"{hours:02d}:{mins:02d}"
+
+    def style_header_row(ws, row: int, headers: list[str]) -> None:
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = thin_border
+
+    def build_month_sheet(ws, month_dates: list[str], title: str) -> None:
+        month_date_objs = [_dt.strptime(d, "%Y-%m-%d") for d in month_dates]
+        week_labels: list[str] = []
+        for d_obj in month_date_objs:
+            label = f"W{((d_obj.day - 1) // 7) + 1}"
+            if label not in week_labels:
+                week_labels.append(label)
+
+        total_cols = 4 + len(month_dates) + len(leave_cols) + 3 + len(week_labels) + 1
+        ws.cell(row=1, column=1, value=title)
+        ws.cell(row=1, column=1).font = Font(bold=True, size=12)
+        ws.cell(row=1, column=1).alignment = Alignment(horizontal="left", vertical="center")
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_cols)
+
+        headers = ["S.No", "Emp ID", "Name", "Department"]
+        headers.extend(d_obj.strftime("%d\n%a") for d_obj in month_date_objs)
+        headers.extend(leave_cols)
+        headers.extend(["Present", "Absent", "Leave Days"])
+        headers.extend(f"{label}\nHours" for label in week_labels)
+        headers.append("Total Hours")
+        style_header_row(ws, 2, headers)
+
+        for idx, emp in enumerate(employees, 1):
+            row = idx + 2
+            daily_map = {day["date"]: day for day in emp.get("daily", [])}
+
+            ws.cell(row=row, column=1, value=idx).alignment = center
+            ws.cell(row=row, column=2, value=emp["emp_id"]).alignment = center
+            ws.cell(row=row, column=3, value=emp["name"])
+            ws.cell(row=row, column=4, value=emp["department"])
+
+            wfh_count = 0
+            sl_count = 0
+            cl_count = 0
+            pl_count = 0
+            comp_count = 0
+            half_count = 0
+            present_count = 0
+            absent_count = 0
+            leave_days_count = 0.0
+            total_minutes = 0
+            week_minutes = {label: 0 for label in week_labels}
+
+            for index, date_str in enumerate(month_dates):
+                col = 5 + index
+                day = daily_map.get(date_str)
+                cell = ws.cell(row=row, column=col, value=status_code(day) if day else "")
+                cell.alignment = center
+                cell.border = thin_border
+
+                if not day:
+                    continue
+
+                fill = fill_for(day)
+                if fill:
+                    cell.fill = fill
+
+                status_type = day.get("status_type", "")
+                leave_subtype = day.get("leave_subtype", "")
+                minutes = day.get("total_minutes") or 0
+                total_minutes += minutes
+                week_label = f"W{((_dt.strptime(date_str, '%Y-%m-%d').day - 1) // 7) + 1}"
+                week_minutes[week_label] += minutes
+
+                if status_type in ("present", "weekend_worked"):
+                    present_count += 1
+                elif status_type == "absent":
+                    absent_count += 1
+                elif status_type == "wfh":
+                    wfh_count += 1
+                    present_count += 1
+                elif status_type == "half_leave":
+                    half_count += 0.5
+                    leave_days_count += 0.5
+                    present_count += 1
+                elif status_type == "comp_off":
+                    comp_count += 1
+                    leave_days_count += 1
+                elif status_type == "leave":
+                    leave_days_count += 1
+                    if leave_subtype == "sl":
+                        sl_count += 1
+                    elif leave_subtype == "cl":
+                        cl_count += 1
+                    elif leave_subtype == "pl":
+                        pl_count += 1
+
+            leave_start = 5 + len(month_dates)
+            leave_values = [wfh_count, sl_count, cl_count, pl_count, comp_count, half_count]
+            for offset, value in enumerate(leave_values):
+                cell = ws.cell(row=row, column=leave_start + offset, value=value if value else 0)
+                cell.alignment = center
+                cell.border = thin_border
+
+            total_start = leave_start + len(leave_cols)
+            totals = [present_count, absent_count, leave_days_count]
+            for offset, value in enumerate(totals):
+                cell = ws.cell(row=row, column=total_start + offset, value=value)
+                cell.alignment = center
+                cell.border = thin_border
+
+            week_start = total_start + 3
+            for offset, label in enumerate(week_labels):
+                cell = ws.cell(row=row, column=week_start + offset, value=hhmm(week_minutes[label]) if week_minutes[label] else "")
+                cell.alignment = center
+                cell.border = thin_border
+
+            total_cell = ws.cell(row=row, column=week_start + len(week_labels), value=hhmm(total_minutes) if total_minutes else "")
+            total_cell.alignment = center
+            total_cell.border = thin_border
+            total_cell.font = bold_font
+
+            for col in range(1, 5):
+                ws.cell(row=row, column=col).border = thin_border
+
+        ws.column_dimensions["A"].width = 5
+        ws.column_dimensions["B"].width = 10
+        ws.column_dimensions["C"].width = 24
+        ws.column_dimensions["D"].width = 18
+        for col in range(5, 5 + len(month_dates)):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 5
+        for col in range(5 + len(month_dates), ws.max_column + 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 10
+        ws.freeze_panes = "E3"
+
+    date_objs = [_dt.strptime(d, "%Y-%m-%d") for d in dates]
+    dates_by_month: OrderedDict[str, list[str]] = OrderedDict()
+    for d_obj, date_str in zip(date_objs, dates):
+        dates_by_month.setdefault(d_obj.strftime("%Y-%m"), []).append(date_str)
+
+    if dates_by_month:
+        first = True
+        for month_dates in dates_by_month.values():
+            month_dt = _dt.strptime(month_dates[0], "%Y-%m-%d")
+            title = month_dt.strftime("%B %Y Attendance")
+            if first:
+                ws = wb.active
+                ws.title = month_dt.strftime("%b %Y")[:31]
+                first = False
+            else:
+                ws = wb.create_sheet(month_dt.strftime("%b %Y")[:31])
+            build_month_sheet(ws, month_dates, title)
+    else:
+        wb.active.title = "Attendance"
+
+    ws2 = wb.create_sheet("Daily Detail")
+    detail_headers = ["S.No", "Emp ID", "Name", "Department", "Date", "Day", "Status", "In Time", "Out Time", "Hours"]
+    style_header_row(ws2, 1, detail_headers)
+
+    detail_row = 2
+    sno = 1
     for emp in employees:
         for day in emp.get("daily", []):
-            writer.writerow([
-                emp["emp_id"], emp["name"], emp["department"],
-                day["date"], day["weekday"], day["status"],
-                day["in_time"], day["out_time"], day["total_hhmm"],
-            ])
+            row_values = [
+                sno,
+                emp["emp_id"],
+                emp["name"],
+                emp["department"],
+                day["date"],
+                day["weekday"],
+                day["status"],
+                day.get("in_time", ""),
+                day.get("out_time", ""),
+                day.get("total_hhmm", ""),
+            ]
+            for col, value in enumerate(row_values, 1):
+                cell = ws2.cell(row=detail_row, column=col, value=value)
+                cell.alignment = center if col not in (3, 4) else Alignment(horizontal="left", vertical="center")
+                cell.border = thin_border
 
-    csv_bytes = output.getvalue().encode("utf-8-sig")  # BOM for Excel compatibility
-    filename = f"Attendance_Report_{dates[0]}_to_{dates[-1]}.csv" if dates else "Attendance_Report.csv"
+            fill = fill_for(day)
+            if fill:
+                for col in range(1, 11):
+                    ws2.cell(row=detail_row, column=col).fill = fill
+
+            detail_row += 1
+            sno += 1
+
+    ws2.column_dimensions["A"].width = 6
+    ws2.column_dimensions["B"].width = 10
+    ws2.column_dimensions["C"].width = 24
+    ws2.column_dimensions["D"].width = 18
+    ws2.column_dimensions["E"].width = 12
+    ws2.column_dimensions["F"].width = 8
+    ws2.column_dimensions["G"].width = 14
+    ws2.column_dimensions["H"].width = 10
+    ws2.column_dimensions["I"].width = 10
+    ws2.column_dimensions["J"].width = 10
+    ws2.freeze_panes = "E2"
+
+    ws3 = wb.create_sheet("Legend")
+    legend = [
+        ("P", "Present", "D1FAE5"),
+        ("A", "Absent", "FEE2E2"),
+        ("WFH", "Work From Home", "CCFBF1"),
+        ("SL", "Sick Leave", "DBEAFE"),
+        ("CL", "Casual Leave", "DBEAFE"),
+        ("PL", "Paid Leave", "DBEAFE"),
+        ("CO", "Comp Off", "E9D5FF"),
+        ("1/2CL", "Half Day CL", "FEF9C3"),
+        ("1/2SL", "Half Day SL", "FEF9C3"),
+        ("1/2WFH", "Half Day WFH", "FEF9C3"),
+        ("1/2PL", "Half Day PL", "FEF9C3"),
+        ("1/2CO", "Half Day Comp Off", "FEF9C3"),
+        ("H", "Holiday", "F3F4F6"),
+        ("LWD", "Last Working Day", "F3F4F6"),
+        ("MP", "Miss Punch", "FFFFFF"),
+    ]
+    style_header_row(ws3, 1, ["Code", "Meaning", "Color"])
+    for row, (code, meaning, color) in enumerate(legend, 2):
+        ws3.cell(row=row, column=1, value=code).border = thin_border
+        ws3.cell(row=row, column=2, value=meaning).border = thin_border
+        color_cell = ws3.cell(row=row, column=3, value="")
+        color_cell.fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+        color_cell.border = thin_border
+    ws3.column_dimensions["A"].width = 10
+    ws3.column_dimensions["B"].width = 24
+    ws3.column_dimensions["C"].width = 12
+
+    output = io.BytesIO()
+    wb.save(output)
+    excel_bytes = output.getvalue()
+
+    filename = f"Attendance_Report_{dates[0]}_to_{dates[-1]}.xlsx" if dates else "Attendance_Report.xlsx"
     return Response(
-        content=csv_bytes,
-        media_type="text/csv",
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Access-Control-Expose-Headers": "Content-Disposition",
         },
     )
-
 
 @app.get("/api/admin/underperformers")
 async def get_underperformers_from_cache(
