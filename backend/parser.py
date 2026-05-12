@@ -52,6 +52,46 @@ MONTH_MAP = {
 # Leave status codes
 LEAVE_STATUSES = {"WFH", "CL", "SL", "PL", "COMP OFF", "1/2CL", "1/2SL", "1/2WFH", "1/2PL", "1/2COMP", "HOLIDAY", "LWD"}
 
+# Half-day variants: "1/2 CL", "HALF-CL", "½ CL", "0.5 WFH", "1/2COMP OFF", etc.
+_HALF_PATTERN = re.compile(
+    r"^(?:1\s*/\s*2|HALF|0?\.5|½)\s*[-._/ ]*\s*(CL|SL|PL|WFH|COMP\s*OFF|COMPOFF|COMP)$"
+)
+_COMP_OFF_PATTERN = re.compile(r"^COMP[-_\s]*OFF$")
+
+
+def _normalize_leave_status(raw) -> str:
+    """
+    Canonicalize a raw leave-cell value to one of LEAVE_STATUSES.
+    Returns "" for blank/unknown cells (which are treated as "no leave marker").
+    Handles case, whitespace, hyphens, underscores, and the Unicode ½ symbol.
+    """
+    if raw is None:
+        return ""
+    s = str(raw).strip()
+    if not s:
+        return ""
+    s = s.upper().replace("½", "1/2")
+    if s in ("NAN", "NONE", "N/A", "-", "--"):
+        return ""
+
+    # Half-day variants — must check before plain codes
+    m = _HALF_PATTERN.match(s)
+    if m:
+        suffix = re.sub(r"\s+", "", m.group(1))
+        if suffix in ("COMPOFF", "COMP"):
+            return "1/2COMP"
+        return f"1/2{suffix}"
+
+    # Comp Off variants
+    if _COMP_OFF_PATTERN.match(s) or s == "COMP":
+        return "COMP OFF"
+
+    # Plain codes
+    if s in {"WFH", "CL", "SL", "PL", "HOLIDAY", "LWD"}:
+        return s
+
+    return ""
+
 
 def parse_time_value(value) -> Optional[str]:
     """Convert Excel time cell to HH:MM string."""
@@ -200,27 +240,7 @@ def parse_leave_file(file_bytes: bytes, year: int) -> tuple[dict, dict, list]:
                     break
 
                 cell_val = row[col_idx]
-                if cell_val is None:
-                    continue
-
-                status = str(cell_val).strip().upper()
-                if not status or status == "NAN" or status == "NONE":
-                    continue
-
-                # Normalize status
-                if status in ("COMP OFF", "COMPOFF", "COMP-OFF"):
-                    status = "COMP OFF"
-                elif status in ("1/2 CL", "HALF CL", "½CL"):
-                    status = "1/2CL"
-                elif status in ("1/2 SL", "HALF SL", "½SL"):
-                    status = "1/2SL"
-                elif status in ("1/2 WFH", "HALF WFH", "½WFH"):
-                    status = "1/2WFH"
-                elif status in ("1/2 PL", "HALF PL", "½PL"):
-                    status = "1/2PL"
-                elif status in ("1/2 COMP OFF", "1/2COMP OFF", "1/2 COMP", "HALF COMP OFF", "HALF COMP", "½COMP"):
-                    status = "1/2COMP"
-
+                status = _normalize_leave_status(cell_val)
                 if status in LEAVE_STATUSES:
                     date_str = f"{year}-{month_num:02d}-{day:02d}"
                     leave_records[emp_id][date_str] = status
@@ -1239,26 +1259,7 @@ def build_dashboard_data_from_google_sheets(
                 for day in range(1, days_in_month + 1):
                     col_idx = day_col_start + (day - 1)
                     cell_val = _cell(row, col_idx)
-                    if cell_val is None or str(cell_val).strip() == "":
-                        continue
-
-                    status = str(cell_val).strip().upper()
-                    if status in ("NAN", "NONE", ""):
-                        continue
-
-                    if status in ("COMP OFF", "COMPOFF", "COMP-OFF"):
-                        status = "COMP OFF"
-                    elif status in ("1/2 CL", "HALF CL", "½CL"):
-                        status = "1/2CL"
-                    elif status in ("1/2 SL", "HALF SL", "½SL"):
-                        status = "1/2SL"
-                    elif status in ("1/2 WFH", "HALF WFH", "½WFH"):
-                        status = "1/2WFH"
-                    elif status in ("1/2 PL", "HALF PL", "½PL"):
-                        status = "1/2PL"
-                    elif status in ("1/2 COMP OFF", "1/2COMP OFF", "1/2 COMP", "HALF COMP OFF", "HALF COMP", "½COMP"):
-                        status = "1/2COMP"
-
+                    status = _normalize_leave_status(cell_val)
                     if status in LEAVE_STATUSES:
                         leave_records[emp_id][f"{year}-{month_num:02d}-{day:02d}"] = status
 
