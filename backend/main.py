@@ -534,16 +534,17 @@ async def get_cached_dashboard():
     cfg = _read_config()
 
     if _is_sheets_mode(cfg):
-        # ── Google Sheets mode ──────────────────────────────────────────────
+        # Always attempt a refresh before serving cached Sheets data so the
+        # dashboard reflects current spreadsheet content instead of waiting for
+        # the background poll loop.
+        att_id   = sheets_fetcher.extract_sheet_id(cfg["admin_attendance_sheet_id"])
+        leave_id = sheets_fetcher.extract_sheet_id(cfg.get("admin_leave_sheet_id", ""))
+        api_key  = cfg["google_api_key"].strip()
+        await _reload_from_sheets(att_id, leave_id, api_key)
+
         cached = database.get_latest_cache_entry()
         if cached is None:
-            att_id   = sheets_fetcher.extract_sheet_id(cfg["admin_attendance_sheet_id"])
-            leave_id = sheets_fetcher.extract_sheet_id(cfg.get("admin_leave_sheet_id", ""))
-            api_key  = cfg["google_api_key"].strip()
-            await _reload_from_sheets(att_id, leave_id, api_key)
-            cached = database.get_latest_cache_entry()
-            if cached is None:
-                raise HTTPException(status_code=500, detail="Failed to load data from Google Sheets.")
+            raise HTTPException(status_code=500, detail="Failed to load data from Google Sheets.")
         dashboard_data, analytics_data = cached
         return {"dashboard": dashboard_data, "analytics": analytics_data}
 
@@ -640,6 +641,10 @@ async def export_dashboard_excel():
     )
     fills = {
         "present": PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid"),
+        "present_mid": PatternFill(start_color="A7F3D0", end_color="A7F3D0", fill_type="solid"),
+        "present_strong": PatternFill(start_color="6EE7B7", end_color="6EE7B7", fill_type="solid"),
+        "weekend_worked": PatternFill(start_color="FDE68A", end_color="FDE68A", fill_type="solid"),
+        "weekend_worked_strong": PatternFill(start_color="FBBF24", end_color="FBBF24", fill_type="solid"),
         "absent": PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid"),
         "wfh": PatternFill(start_color="CCFBF1", end_color="CCFBF1", fill_type="solid"),
         "leave": PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid"),
@@ -647,7 +652,13 @@ async def export_dashboard_excel():
         "half_leave": PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid"),
         "holiday": PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid"),
         "weekend": PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid"),
+        "week_total": PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid"),
+        "week_total_extra": PatternFill(start_color="FDE68A", end_color="FDE68A", fill_type="solid"),
+        "month_total": PatternFill(start_color="C7F9CC", end_color="C7F9CC", fill_type="solid"),
     }
+    worked_font = Font(color="166534", bold=True, size=10)
+    weekend_worked_font = Font(color="92400E", bold=True, size=10)
+    total_with_extra_font = Font(color="92400E", bold=True, size=10)
     leave_cols = ["WFH", "SL", "CL", "PL", "Comp Off", "Half Day"]
 
     def status_code(day: dict) -> str:
@@ -676,8 +687,16 @@ async def export_dashboard_excel():
 
     def fill_for(day: dict):
         st = day.get("status_type", "")
-        if st in ("present", "weekend_worked"):
+        if st == "present":
+            mins = day.get("total_minutes") or 0
+            if mins >= 600:
+                return fills["present_strong"]
+            if mins >= 480:
+                return fills["present_mid"]
             return fills["present"]
+        if st == "weekend_worked":
+            mins = day.get("total_minutes") or 0
+            return fills["weekend_worked_strong"] if mins >= 480 else fills["weekend_worked"]
         if st == "absent":
             return fills["absent"]
         if st == "wfh":
@@ -697,6 +716,13 @@ async def export_dashboard_excel():
     def hhmm(total_minutes: int) -> str:
         hours, mins = divmod(total_minutes, 60)
         return f"{hours:02d}:{mins:02d}"
+
+    def format_total_with_extra(regular_minutes: int, extra_minutes: int) -> str:
+        regular = hhmm(regular_minutes) if regular_minutes else "00:00"
+        if extra_minutes > 0:
+            return f"{regular} + {hhmm(extra_minutes)}"
+        total = regular_minutes + extra_minutes
+        return hhmm(total) if total else ""
 
     def style_header_row(ws, row: int, headers: list[str]) -> None:
         for col, header in enumerate(headers, 1):
@@ -723,7 +749,7 @@ async def export_dashboard_excel():
         headers = ["S.No", "Emp ID", "Name", "Department"]
         headers.extend(d_obj.strftime("%d\n%a") for d_obj in month_date_objs)
         headers.extend(leave_cols)
-        headers.extend(["Present", "Absent", "Leave Days"])
+        headers.extend(["Worked Days", "Absent", "Leave Days"])
         headers.extend(f"{label}\nHours" for label in week_labels)
         headers.append("Total Hours")
         style_header_row(ws, 2, headers)
@@ -746,8 +772,9 @@ async def export_dashboard_excel():
             present_count = 0
             absent_count = 0
             leave_days_count = 0.0
-            total_minutes = 0
-            week_minutes = {label: 0 for label in week_labels}
+            weekday_minutes_total = 0
+            weekend_minutes_total = 0
+            week_minutes = {label: {"weekday": 0, "weekend": 0} for label in week_labels}
 
             for index, date_str in enumerate(month_dates):
                 col = 5 + index
@@ -759,16 +786,27 @@ async def export_dashboard_excel():
                 if not day:
                     continue
 
+                status_type = day.get("status_type", "")
+                minutes = day.get("total_minutes") or 0
+                is_weekend = bool(day.get("is_weekend"))
+                week_label = f"W{((_dt.strptime(date_str, '%Y-%m-%d').day - 1) // 7) + 1}"
+
+                if status_type in ("present", "weekend_worked") and minutes > 0:
+                    cell.value = day.get("total_hhmm") or hhmm(minutes)
+                    cell.font = weekend_worked_font if status_type == "weekend_worked" else worked_font
+
                 fill = fill_for(day)
                 if fill:
                     cell.fill = fill
 
-                status_type = day.get("status_type", "")
                 leave_subtype = day.get("leave_subtype", "")
-                minutes = day.get("total_minutes") or 0
-                total_minutes += minutes
-                week_label = f"W{((_dt.strptime(date_str, '%Y-%m-%d').day - 1) // 7) + 1}"
-                week_minutes[week_label] += minutes
+                if status_type in ("present", "weekend_worked"):
+                    if is_weekend or status_type == "weekend_worked":
+                        weekend_minutes_total += minutes
+                        week_minutes[week_label]["weekend"] += minutes
+                    else:
+                        weekday_minutes_total += minutes
+                        week_minutes[week_label]["weekday"] += minutes
 
                 if status_type in ("present", "weekend_worked"):
                     present_count += 1
@@ -809,26 +847,48 @@ async def export_dashboard_excel():
 
             week_start = total_start + 3
             for offset, label in enumerate(week_labels):
-                cell = ws.cell(row=row, column=week_start + offset, value=hhmm(week_minutes[label]) if week_minutes[label] else "")
+                weekday_part = week_minutes[label]["weekday"]
+                weekend_part = week_minutes[label]["weekend"]
+                cell = ws.cell(
+                    row=row,
+                    column=week_start + offset,
+                    value=format_total_with_extra(weekday_part, weekend_part),
+                )
                 cell.alignment = center
                 cell.border = thin_border
+                cell.font = total_with_extra_font if weekend_part else bold_font
+                cell.fill = fills["week_total_extra"] if weekend_part else fills["week_total"]
 
-            total_cell = ws.cell(row=row, column=week_start + len(week_labels), value=hhmm(total_minutes) if total_minutes else "")
+            total_cell = ws.cell(
+                row=row,
+                column=week_start + len(week_labels),
+                value=format_total_with_extra(weekday_minutes_total, weekend_minutes_total),
+            )
             total_cell.alignment = center
             total_cell.border = thin_border
-            total_cell.font = bold_font
+            total_cell.font = total_with_extra_font if weekend_minutes_total else bold_font
+            total_cell.fill = fills["month_total"]
 
             for col in range(1, 5):
                 ws.cell(row=row, column=col).border = thin_border
 
-        ws.column_dimensions["A"].width = 5
-        ws.column_dimensions["B"].width = 10
-        ws.column_dimensions["C"].width = 24
-        ws.column_dimensions["D"].width = 18
+        ws.column_dimensions["A"].width = 6
+        ws.column_dimensions["B"].width = 12
+        ws.column_dimensions["C"].width = 28
+        ws.column_dimensions["D"].width = 20
         for col in range(5, 5 + len(month_dates)):
-            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 5
-        for col in range(5 + len(month_dates), ws.max_column + 1):
-            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 10
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 8.5
+
+        leave_start_col = 5 + len(month_dates)
+        total_start_col = leave_start_col + len(leave_cols)
+        week_start_col = total_start_col + 3
+
+        for col in range(leave_start_col, total_start_col):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 12
+        for col in range(total_start_col, week_start_col):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 13
+        for col in range(week_start_col, ws.max_column + 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 15
         ws.freeze_panes = "E3"
 
     date_objs = [_dt.strptime(d, "%Y-%m-%d") for d in dates]
@@ -898,7 +958,9 @@ async def export_dashboard_excel():
 
     ws3 = wb.create_sheet("Legend")
     legend = [
-        ("P", "Present", "D1FAE5"),
+        ("05:30", "Worked weekday hours", "D1FAE5"),
+        ("08:45", "Worked weekday hours (strong)", "6EE7B7"),
+        ("04:30", "Weekend extra hours", "FDE68A"),
         ("A", "Absent", "FEE2E2"),
         ("WFH", "Work From Home", "CCFBF1"),
         ("SL", "Sick Leave", "DBEAFE"),
@@ -910,6 +972,7 @@ async def export_dashboard_excel():
         ("1/2WFH", "Half Day WFH", "FEF9C3"),
         ("1/2PL", "Half Day PL", "FEF9C3"),
         ("1/2CO", "Half Day Comp Off", "FEF9C3"),
+        ("08:00 + 04:00", "Weekly or monthly total with weekend extra hours", "FDE68A"),
         ("H", "Holiday", "F3F4F6"),
         ("LWD", "Last Working Day", "F3F4F6"),
         ("MP", "Miss Punch", "FFFFFF"),

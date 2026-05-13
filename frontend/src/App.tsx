@@ -22,39 +22,35 @@ export default function App() {
   const hasSession = localStorage.getItem(SESSION_KEY) === "1";
   const [stage, setStage] = useState<AppStage>(hasSession ? "admin-loading" : "login");
 
-  // Data
-  const [dashboard, setDashboard]         = useState<DashboardData | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
 
-  // UI
-  const [error, setError]                       = useState<string | null>(null);
-  const [activePage, setActivePage]             = useState<AppPage>("overview");
-  const [activePeriod, setActivePeriod]         = useState("all");
+  const [error, setError] = useState<string | null>(null);
+  const [activePage, setActivePage] = useState<AppPage>("overview");
+  const [activePeriod, setActivePeriod] = useState("all");
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [liveUpdateBanner, setLiveUpdateBanner] = useState(false);
   const [leavePageInitialType, setLeavePageInitialType] = useState<string | null>(null);
 
-  // ── Overview page filter state (lifted so it survives page navigation) ────
-  const [overviewSearch,      setOverviewSearch]      = useState("");
+  const [overviewSearch, setOverviewSearch] = useState("");
   const [overviewLeaveFilter, setOverviewLeaveFilter] = useState<"all" | "wfh" | "cl" | "sl" | "pl" | "comp_off" | "half_leave" | "absent">("all");
-  const [overviewSortKey,     setOverviewSortKey]     = useState<"name" | "absent" | "leave" | "wfh" | "hours">("name");
-  const [overviewMinHours,    setOverviewMinHours]    = useState(0);
-  const [overviewHoursDir,    setOverviewHoursDir]    = useState<"gte" | "lte">("gte");
+  const [overviewSortKey, setOverviewSortKey] = useState<"name" | "absent" | "leave" | "wfh" | "hours">("name");
+  const [overviewMinHours, setOverviewMinHours] = useState(0);
+  const [overviewHoursDir, setOverviewHoursDir] = useState<"gte" | "lte">("gte");
 
-  // ── Period filter (lifted so header and overview page share state) ─────────
   const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
-  const [selMonth,   setSelMonth]   = useState(new Date().getMonth());
-  const [selYear,    setSelYear]    = useState(new Date().getFullYear());
-  const [selWeek,    setSelWeek]    = useState(() => Math.ceil(new Date().getDate() / 7));
+  const [selMonth, setSelMonth] = useState(new Date().getMonth());
+  const [selYear, setSelYear] = useState(new Date().getFullYear());
+  const [selWeek, setSelWeek] = useState(() => Math.ceil(new Date().getDate() / 7));
   const [customFrom, setCustomFrom] = useState("");
-  const [customTo,   setCustomTo]   = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   const periodState: PeriodState = { periodMode, selMonth, selYear, selWeek, customFrom, customTo };
   const periodActions: PeriodActions = { setPeriodMode, setSelMonth, setSelYear, setSelWeek, setCustomFrom, setCustomTo };
 
   const availableYears = useMemo(() => {
-    const emps = analyticsData?.filtered_data?.employees ?? dashboard?.employees ?? [];
-    const years = [...new Set(emps.flatMap(e => e.daily?.map((d: { date: string }) => parseInt(d.date.substring(0, 4))) ?? []))].sort() as number[];
+    const employees = analyticsData?.filtered_data?.employees ?? dashboard?.employees ?? [];
+    const years = [...new Set(employees.flatMap((employee) => employee.daily?.map((day: { date: string }) => parseInt(day.date.substring(0, 4), 10)) ?? []))].sort();
     return years.length > 0 ? years : [new Date().getFullYear()];
   }, [analyticsData, dashboard]);
 
@@ -62,8 +58,6 @@ export default function App() {
     setActivePage(page);
     setLeavePageInitialType(page === "leave" && filter ? filter : null);
   };
-
-  // ── Load dashboard from Google Sheets cache (both admin + HR) ────────────
 
   const loadAdminDashboard = useCallback(async () => {
     setStage("admin-loading");
@@ -79,13 +73,10 @@ export default function App() {
       if (axios.isAxiosError(err) && err.response) {
         setError(err.response.data?.detail || "Failed to load dashboard.");
       } else {
-        setError("Network error — is the backend running?");
+        setError("Network error - is the backend running?");
       }
-      // Stay on admin-loading so the error + retry button shows
     }
   }, []);
-
-  // ── WebSocket live updates ────────────────────────────────────────────────
 
   const refreshFromCache = useCallback(async () => {
     try {
@@ -93,7 +84,7 @@ export default function App() {
       setDashboard(res.data.dashboard as DashboardData);
       setAnalyticsData(res.data.analytics as AnalyticsData);
     } catch {
-      // keep old data on failure
+      // Keep existing data if refresh fails.
     }
   }, []);
 
@@ -107,10 +98,9 @@ export default function App() {
         refreshFromCache();
       }
     }, [refreshFromCache]),
-    stage === "dashboard"
+    stage === "dashboard",
   );
 
-  // Auto-load dashboard on refresh if session exists
   useEffect(() => {
     if (hasSession) loadAdminDashboard();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,26 +111,19 @@ export default function App() {
     await loadAdminDashboard();
   }, [loadAdminDashboard]);
 
-  // After admin finishes setup, load the dashboard
   const handleAdminConfigured = useCallback(async () => {
     await loadAdminDashboard();
   }, [loadAdminDashboard]);
-
-  // ── Period change — both roles use cache ─────────────────────────────────
 
   const handlePeriodChange = async (period: string) => {
     setActivePeriod(period);
     setAnalyticsLoading(true);
     try {
       await refreshFromCache();
-    } catch {
-      // silent
     } finally {
       setAnalyticsLoading(false);
     }
   };
-
-  // ── Export Excel (combines attendance + leave from Google Sheets cache) ───
 
   const handleDownload = async () => {
     try {
@@ -157,8 +140,6 @@ export default function App() {
     }
   };
 
-  // ── Logout ───────────────────────────────────────────────────────────────
-
   const handleLogout = () => {
     localStorage.removeItem(SESSION_KEY);
     setStage("login");
@@ -169,15 +150,11 @@ export default function App() {
     setActivePeriod("all");
   };
 
-  // ── Refresh dashboard from Google Sheets ─────────────────────────────────
-
   const handleUploadNew = () => {
     setActivePage("overview");
     setActivePeriod("all");
     loadAdminDashboard();
   };
-
-  // ── Screens ──────────────────────────────────────────────────────────────
 
   if (stage === "login") {
     return <LoginPage onLogin={handleLogin} />;
@@ -189,43 +166,46 @@ export default function App() {
 
   if (stage === "admin-loading") {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-sm mx-auto px-6">
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(247,148,29,0.18),_transparent_28%),linear-gradient(180deg,_#fffaf3_0%,_#f8fafc_45%,_#eef2f7_100%)] px-6">
+        <div className="mx-auto max-w-md text-center">
           {error ? (
-            <>
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto">
-                <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="space-y-5">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 shadow-sm ring-1 ring-red-200">
+                <svg className="h-6 w-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <p className="text-gray-900 font-semibold text-sm">Failed to load dashboard</p>
-              <p className="text-red-500 text-xs leading-relaxed">{error}</p>
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-950">Failed to load dashboard</p>
+                <p className="text-xs leading-relaxed text-red-500">{error}</p>
+              </div>
               <button
                 onClick={() => { setError(null); loadAdminDashboard(); }}
-                className="text-sm text-indigo-600 hover:text-indigo-700 font-semibold underline underline-offset-2"
+                className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
                 Retry
               </button>
-              <div className="pt-2">
-                <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-gray-600">
-                  ← Back to login
+              <div className="pt-1">
+                <button onClick={handleLogout} className="text-xs text-slate-400 transition hover:text-slate-600">
+                  Back to login
                 </button>
               </div>
-            </>
+            </div>
           ) : (
-            <>
-              <div className="w-12 h-12 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-              <p className="text-gray-900 font-semibold text-sm">Loading dashboard…</p>
-              <p className="text-gray-400 text-xs">Fetching from Google Sheets</p>
-            </>
+            <div className="rounded-[28px] border border-white/80 bg-white/90 px-8 py-10 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-400 via-orange-400 to-rose-500 shadow-lg shadow-orange-500/30">
+                <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-slate-950/15 border-t-slate-950" />
+              </div>
+              <p className="mt-5 text-lg font-semibold tracking-tight text-slate-950">Loading the live attendance workspace</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Pulling the latest snapshot from Google Sheets and preparing attendance, leave, and punch insights.
+              </p>
+            </div>
           )}
         </div>
       </div>
     );
   }
-
-
-  // ── Main dashboard ───────────────────────────────────────────────────────
 
   if (!dashboard) return null;
 
@@ -244,16 +224,25 @@ export default function App() {
       onLogout={handleLogout}
       onExport={handleDownload}
     >
+      {dashboard.errors.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900 shadow-sm">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-semibold">Parser noticed {dashboard.errors.length} data warning{dashboard.errors.length === 1 ? "" : "s"}.</p>
+            <p className="text-xs text-amber-700">The dashboard is usable, but a few source tabs or rows may need cleanup.</p>
+          </div>
+        </div>
+      )}
+
       {analyticsLoading && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-gray-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg">
-          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          Updating analytics…
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2.5 text-xs font-medium text-white shadow-lg">
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          Updating analytics...
         </div>
       )}
 
       {liveUpdateBanner && (
-        <div className="fixed top-20 right-6 z-50 flex items-center gap-2 bg-emerald-600 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg">
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />
+        <div className="fixed right-6 top-20 z-50 flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+          <span className="h-1.5 w-1.5 rounded-full bg-white" />
           Dashboard updated from Google Sheets
         </div>
       )}

@@ -25,13 +25,13 @@ type SortKey = "name" | "absent" | "leave" | "wfh" | "hours";
 type LeaveFilter = "all" | "wfh" | "cl" | "sl" | "pl" | "comp_off" | "half_leave" | "absent";
 
 const LEAVE_TYPE_CONFIG = [
-  { key: "absent",     label: "Absent",       fullLabel: "Absent Days",      bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700",     bar: "bg-red-500",     dot: "bg-red-500",     activeBg: "bg-red-600",    color: "#ef4444" },
-  { key: "wfh",        label: "WFH",          fullLabel: "Work From Home",   bg: "bg-teal-50",    border: "border-teal-200",    text: "text-teal-700",    bar: "bg-teal-500",    dot: "bg-teal-500",    activeBg: "bg-teal-600",   color: "#14b8a6" },
-  { key: "cl",         label: "Casual Leave", fullLabel: "Casual Leave",     bg: "bg-blue-50",    border: "border-blue-200",    text: "text-blue-700",    bar: "bg-blue-500",    dot: "bg-blue-500",    activeBg: "bg-blue-600",   color: "#3b82f6" },
-  { key: "sl",         label: "Sick Leave",   fullLabel: "Sick Leave",       bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700",  bar: "bg-purple-500",  dot: "bg-purple-500",  activeBg: "bg-purple-600", color: "#a855f7" },
-  { key: "pl",         label: "Privilege",    fullLabel: "Privilege Leave",  bg: "bg-violet-50",  border: "border-violet-200",  text: "text-violet-700",  bar: "bg-violet-500",  dot: "bg-violet-500",  activeBg: "bg-violet-600", color: "#8b5cf6" },
-  { key: "comp_off",   label: "Comp Off",     fullLabel: "Compensatory Off", bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   bar: "bg-amber-500",   dot: "bg-amber-500",   activeBg: "bg-amber-600",  color: "#f59e0b" },
-  { key: "half_leave", label: "Half Day",     fullLabel: "Half Day Leave",   bg: "bg-yellow-50",  border: "border-yellow-200",  text: "text-yellow-700",  bar: "bg-yellow-500",  dot: "bg-yellow-400",  activeBg: "bg-yellow-500", color: "#eab308" },
+  { key: "absent",     label: "Absent",       fullLabel: "Absent Days",      bg: "bg-red-50",     border: "border-red-100",     text: "text-red-700",     bar: "bg-red-400",     dot: "bg-red-400",     activeBg: "bg-red-500",    color: "#f87171" },
+  { key: "wfh",        label: "WFH",          fullLabel: "Work From Home",   bg: "bg-teal-50",    border: "border-teal-100",    text: "text-teal-700",    bar: "bg-teal-400",    dot: "bg-teal-400",    activeBg: "bg-teal-500",   color: "#2dd4bf" },
+  { key: "cl",         label: "Casual Leave", fullLabel: "Casual Leave",     bg: "bg-blue-50",    border: "border-blue-100",    text: "text-blue-700",    bar: "bg-blue-400",    dot: "bg-blue-400",    activeBg: "bg-blue-500",   color: "#60a5fa" },
+  { key: "sl",         label: "Sick Leave",   fullLabel: "Sick Leave",       bg: "bg-purple-50",  border: "border-purple-100",  text: "text-purple-700",  bar: "bg-purple-400",  dot: "bg-purple-400",  activeBg: "bg-purple-500", color: "#c084fc" },
+  { key: "pl",         label: "Privilege",    fullLabel: "Privilege Leave",  bg: "bg-violet-50",  border: "border-violet-100",  text: "text-violet-700",  bar: "bg-violet-400",  dot: "bg-violet-400",  activeBg: "bg-violet-500", color: "#a78bfa" },
+  { key: "comp_off",   label: "Comp Off",     fullLabel: "Compensatory Off", bg: "bg-amber-50",   border: "border-amber-100",   text: "text-amber-700",   bar: "bg-amber-400",   dot: "bg-amber-400",   activeBg: "bg-amber-500",  color: "#fbbf24" },
+  { key: "half_leave", label: "Half Day",     fullLabel: "Half Day Leave",   bg: "bg-yellow-50",  border: "border-yellow-100",  text: "text-yellow-700",  bar: "bg-yellow-400",  dot: "bg-yellow-300",  activeBg: "bg-yellow-400", color: "#facc15" },
 ] as const;
 
 export default function OverviewPage({
@@ -319,29 +319,29 @@ export default function OverviewPage({
     label: string; count: number | string; emp: number | null; sub: string;
     cls: string; labelCls: string; countCls: string; empCls: string; title?: string;
   }> = [
-    { label: "Total Employees", count: dashboard.employee_count, emp: null,                sub: `${dashboard.dates_processed.length} days tracked`, cls: "bg-indigo-600 text-white",                labelCls: "text-indigo-200",  countCls: "text-white",      empCls: "text-indigo-200"  },
-    { label: "Absent Days",     count: periodAgg.absent,         emp: periodAgg.absentEmp, sub: "days", cls: "bg-red-50 border border-red-200",        labelCls: "text-red-400",     countCls: "text-red-600",    empCls: "text-red-400"     },
-    { label: "WFH Days",        count: periodAgg.wfh,            emp: periodAgg.wfhEmp,    sub: "days", cls: "bg-teal-50 border border-teal-200",      labelCls: "text-teal-400",    countCls: "text-teal-600",   empCls: "text-teal-400"    },
-    { label: "Casual Leave",    count: periodAgg.cl,             emp: periodAgg.clEmp,     sub: "days", cls: "bg-blue-50 border border-blue-200",      labelCls: "text-blue-400",    countCls: "text-blue-600",   empCls: "text-blue-400"    },
-    { label: "Sick Leave",      count: periodAgg.sl,             emp: periodAgg.slEmp,     sub: "days", cls: "bg-purple-50 border border-purple-200",  labelCls: "text-purple-400",  countCls: "text-purple-600", empCls: "text-purple-400"  },
-    { label: "Half Day",        count: periodAgg.half,           emp: periodAgg.halfEmp,   sub: "events", cls: "bg-yellow-50 border border-yellow-200",labelCls: "text-yellow-500",  countCls: "text-yellow-600", empCls: "text-yellow-500", title: halfBreakdownTip },
-    { label: "Privilege Leave", count: periodAgg.pl,             emp: periodAgg.plEmp,     sub: "days", cls: "bg-violet-50 border border-violet-200",  labelCls: "text-violet-400",  countCls: "text-violet-600", empCls: "text-violet-400"  },
-    { label: "Comp Off",        count: periodAgg.comp,           emp: periodAgg.compEmp,       sub: "days", cls: "bg-amber-50 border border-amber-200",    labelCls: "text-amber-500",   countCls: "text-amber-600",   empCls: "text-amber-500"   },
-    { label: "Miss Punch",      count: periodAgg.misspunch,      emp: periodAgg.misspunchEmp,  sub: "days", cls: "bg-orange-50 border border-orange-200",  labelCls: "text-orange-400",  countCls: "text-orange-600",  empCls: "text-orange-400"  },
+    { label: "Total Employees", count: dashboard.employee_count, emp: null,                sub: `${dashboard.dates_processed.length} days tracked`, cls: "bg-white border border-gray-100",          labelCls: "text-gray-400",  countCls: "text-gray-900",   empCls: "text-gray-400"   },
+    { label: "Absent Days",     count: periodAgg.absent,         emp: periodAgg.absentEmp, sub: "days",   cls: "bg-white border border-gray-100",          labelCls: "text-gray-400",  countCls: "text-red-600",    empCls: "text-gray-400"   },
+    { label: "WFH Days",        count: periodAgg.wfh,            emp: periodAgg.wfhEmp,    sub: "days",   cls: "bg-white border border-gray-100",          labelCls: "text-gray-400",  countCls: "text-teal-600",   empCls: "text-gray-400"   },
+    { label: "Casual Leave",    count: periodAgg.cl,             emp: periodAgg.clEmp,     sub: "days",   cls: "bg-white border border-gray-100",          labelCls: "text-gray-400",  countCls: "text-blue-600",   empCls: "text-gray-400"   },
+    { label: "Sick Leave",      count: periodAgg.sl,             emp: periodAgg.slEmp,     sub: "days",   cls: "bg-white border border-gray-100",          labelCls: "text-gray-400",  countCls: "text-purple-600", empCls: "text-gray-400"   },
+    { label: "Half Day",        count: periodAgg.half,           emp: periodAgg.halfEmp,   sub: "events", cls: "bg-white border border-gray-100",          labelCls: "text-gray-400",  countCls: "text-yellow-700", empCls: "text-gray-400", title: halfBreakdownTip },
+    { label: "Privilege Leave", count: periodAgg.pl,             emp: periodAgg.plEmp,     sub: "days",   cls: "bg-white border border-gray-100",          labelCls: "text-gray-400",  countCls: "text-violet-600", empCls: "text-gray-400"   },
+    { label: "Comp Off",        count: periodAgg.comp,           emp: periodAgg.compEmp,       sub: "days",   cls: "bg-white border border-gray-100",      labelCls: "text-gray-400",  countCls: "text-amber-600",   empCls: "text-gray-400"   },
+    { label: "Miss Punch",      count: periodAgg.misspunch,      emp: periodAgg.misspunchEmp,  sub: "days",   cls: "bg-white border border-gray-100",      labelCls: "text-gray-400",  countCls: "text-orange-600",  empCls: "text-gray-400"   },
   ];
 
   // ── No data for period — full-page message ───────────────────────────────
   if (!periodAgg.hasData) {
     return (
-      <div className="flex flex-col items-center justify-center py-28 text-center">
-        <div className="w-20 h-20 rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-6 shadow-sm">
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-indigo-100 bg-indigo-50 shadow-sm">
           <svg className="w-10 h-10 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-black text-gray-800 mb-2">Data not uploaded yet</h2>
-        <p className="text-gray-400 text-sm mb-1">No attendance records found for</p>
-        <p className="text-indigo-600 font-bold text-base mb-8">{periodLabel}</p>
+        <h2 className="mb-2 text-2xl font-black text-gray-800">Data not uploaded yet</h2>
+        <p className="mb-1 text-sm text-gray-400">No attendance records found for</p>
+        <p className="mb-6 text-base font-bold text-indigo-600">{periodLabel}</p>
         <div className="flex gap-3">
           <button
             onClick={() => { setPeriodMode("month"); setSelMonth(new Date().getMonth()); setSelYear(new Date().getFullYear()); }}
@@ -360,17 +360,17 @@ export default function OverviewPage({
       {/* ── KPI strip ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-4 lg:grid-cols-8 gap-3">
         {kpiCards.map((card) => (
-          <div key={card.label} title={card.title} className={`rounded-2xl p-4 shadow-sm ${card.cls} ${card.title ? "cursor-help" : ""}`}>
-            <p className={`text-[9px] font-bold uppercase tracking-widest leading-tight ${card.labelCls}`}>{card.label}</p>
-            <div className="flex items-end justify-between mt-2 gap-1">
+          <div key={card.label} title={card.title} className={`rounded-xl p-4 ${card.cls} ${card.title ? "cursor-help" : ""}`}>
+            <p className={`text-[10px] font-medium uppercase tracking-wider leading-tight ${card.labelCls}`}>{card.label}</p>
+            <div className="flex items-end justify-between mt-3 gap-1">
               <div>
-                <p className={`text-3xl font-black leading-none ${card.countCls}`}>{typeof card.count === "number" ? fmtDays(card.count) : card.count}</p>
-                <p className={`text-[10px] font-semibold mt-1 ${card.labelCls}`}>{card.sub}</p>
+                <p className={`text-2xl font-semibold leading-none tracking-tight ${card.countCls}`}>{typeof card.count === "number" ? fmtDays(card.count) : card.count}</p>
+                <p className={`text-[11px] mt-1.5 ${card.labelCls}`}>{card.sub}</p>
               </div>
               {card.emp !== null && (
                 <div className="text-right shrink-0">
-                  <p className={`text-lg font-black leading-none ${card.countCls}`}>{card.emp}</p>
-                  <p className={`text-[9px] font-semibold mt-1 ${card.empCls}`}>employees</p>
+                  <p className={`text-sm font-semibold leading-none ${card.countCls}`}>{card.emp}</p>
+                  <p className={`text-[10px] mt-1 ${card.empCls}`}>employees</p>
                 </div>
               )}
             </div>
@@ -382,24 +382,24 @@ export default function OverviewPage({
       <div className="space-y-4">
 
         {/* Leave Distribution card — full width with slide-in employee panel */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-gray-900">Leave Distribution</p>
-              <p className="text-xs text-gray-400 mt-0.5">{fmtDays(totalLeaveEvents)} day-equivalents across {periodAgg.empCount} employees</p>
+              <p className="text-[13px] font-semibold text-gray-900">Leave Distribution</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{fmtDays(totalLeaveEvents)} day-equivalents · {periodAgg.empCount} employees</p>
             </div>
             {leaveFilter !== "all" ? (
               <button
                 onClick={() => { setLeaveFilter("all"); setPanelSearch(""); }}
-                className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 font-semibold transition-colors"
+                className="flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-gray-900 font-medium transition-colors"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
                 Clear filter
               </button>
             ) : (
-              <span className="text-xs text-gray-400 font-medium">Click type to filter ↓</span>
+              <span className="text-[11px] text-gray-400">Click a type to filter</span>
             )}
           </div>
 
@@ -432,8 +432,8 @@ export default function OverviewPage({
                       )
                     )
                   : null}
-                <text x="90" y="80" textAnchor="middle" fontSize="32" fontWeight="800" fill="#111827">{fmtDays(totalLeaveEvents)}</text>
-                <text x="90" y="98" textAnchor="middle" fontSize="7.5" fill="#9ca3af" style={{ letterSpacing: 2 }}>TOTAL DAYS</text>
+                <text x="90" y="82" textAnchor="middle" fontSize="28" fontWeight="600" fill="#111827">{fmtDays(totalLeaveEvents)}</text>
+                <text x="90" y="100" textAnchor="middle" fontSize="7.5" fill="#9ca3af" style={{ letterSpacing: 1.5 }}>TOTAL DAYS</text>
               </svg>
 
               {/* Legend */}
@@ -453,16 +453,16 @@ export default function OverviewPage({
                     <button
                       key={lt.key}
                       onClick={() => { setLeaveFilter(isActive ? "all" : lt.key as LeaveFilter); setPanelSearch(""); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all text-left ${
+                      className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-md transition-colors text-left ${
                         isActive ? "bg-gray-900" : "hover:bg-gray-50"
                       }`}
                     >
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: lt.color }} />
-                      <span className={`text-xs font-semibold flex-1 ${isActive ? "text-white" : "text-gray-700"}`}>{lt.fullLabel}</span>
-                      <span className={`text-sm font-black ${isActive ? "text-white" : "text-gray-900"}`}>{fmtDays(count)}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold min-w-[44px] text-center ${
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: lt.color }} />
+                      <span className={`text-[12px] font-medium flex-1 ${isActive ? "text-white" : "text-gray-700"}`}>{lt.fullLabel}</span>
+                      <span className={`text-[13px] font-semibold ${isActive ? "text-white" : "text-gray-900"}`}>{fmtDays(count)}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium min-w-[40px] text-center ${
                         isActive ? "bg-white/15 text-white/80" : "bg-gray-100 text-gray-500"
-                      }`}>{empCount} emp</span>
+                      }`}>{empCount}</span>
                     </button>
                   );
                 })}
@@ -476,20 +476,16 @@ export default function OverviewPage({
               return (
                 <div className="flex-1 border-l border-gray-100 flex flex-col min-w-0 overflow-hidden">
 
-                  {/* Coloured header */}
-                  <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3"
-                    style={{ background: `${activeCfg.color}0d` }}>
-                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
-                      style={{ background: `${activeCfg.color}20` }}>
-                      <span className="w-4 h-4 rounded-full shadow-sm" style={{ background: activeCfg.color }} />
-                    </div>
+                  {/* Header */}
+                  <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: activeCfg.color }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-base font-black text-gray-900 leading-tight">{activeCfg.fullLabel}</p>
-                      <p className="text-[11px] text-gray-400 mt-0.5 font-medium">{panelEmployees.length} employees affected</p>
+                      <p className="text-[14px] font-semibold text-gray-900 leading-tight">{activeCfg.fullLabel}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{panelEmployees.length} employees affected</p>
                     </div>
-                    <div className="text-right shrink-0 pl-3 border-l border-gray-200/60">
-                      <p className="text-2xl font-black leading-none" style={{ color: activeCfg.color }}>{fmtDays(totalDays)}</p>
-                      <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-wide">{leaveFilter === "half_leave" ? "Events" : "Total Days"}</p>
+                    <div className="text-right shrink-0">
+                      <p className="text-xl font-semibold leading-none text-gray-900">{fmtDays(totalDays)}</p>
+                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider">{leaveFilter === "half_leave" ? "Events" : "Days"}</p>
                     </div>
                   </div>
 
@@ -499,8 +495,8 @@ export default function OverviewPage({
                       type="text"
                       value={panelSearch}
                       onChange={(e) => setPanelSearch(e.target.value)}
-                      placeholder="Search employees…"
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400 focus:bg-white transition-all"
+                      placeholder="Search employees"
+                      className="w-full px-3 py-2 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:border-gray-900 transition-colors"
                     />
                   </div>
 
@@ -516,21 +512,19 @@ export default function OverviewPage({
                         <button
                           key={emp.emp_id}
                           onClick={() => setSelectedEmployee(emp)}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50/80 transition-colors text-left group"
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
                         >
-                          <span className="text-[11px] font-bold text-gray-300 w-5 shrink-0 tabular-nums group-hover:text-gray-400">
-                            {idx + 1}
-                          </span>
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm ${avatarColor(emp.emp_id)}`}>
+                          <span className="text-[11px] text-gray-300 w-5 shrink-0 tabular-nums">{idx + 1}</span>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold shrink-0 ${avatarColor(emp.emp_id)}`}>
                             {initials(emp.name)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold truncate transition-colors" style={{ color: activeCfg.color }}>{emp.name}</p>
+                            <p className="text-[13px] font-medium text-gray-900 truncate">{emp.name}</p>
                             <p className="text-[11px] text-gray-400 truncate mt-0.5">{emp.department || emp.emp_id}</p>
                           </div>
-                          <div className="shrink-0 flex flex-col items-end gap-0">
-                            <span className="text-xl font-black leading-none" style={{ color: activeCfg.color }}>{fmtDays(cnt)}</span>
-                            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide mt-0.5">{leaveFilter === "half_leave" ? "EVENTS" : "DAYS"}</span>
+                          <div className="shrink-0 flex flex-col items-end">
+                            <span className="text-[15px] font-semibold leading-none text-gray-900">{fmtDays(cnt)}</span>
+                            <span className="text-[9px] text-gray-400 uppercase tracking-wider mt-1">{leaveFilter === "half_leave" ? "Events" : "Days"}</span>
                           </div>
                         </button>
                       );
@@ -546,40 +540,31 @@ export default function OverviewPage({
         <div className="grid grid-cols-3 gap-4">
 
           {/* Absent employees */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className={`px-4 py-3 border-b flex items-center justify-between ${
-              absentEmployees.length > 0 ? "bg-red-50 border-red-100" : "border-gray-100"
-            }`}>
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {absentEmployees.length > 0 && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
-                <p className="text-sm font-bold text-gray-900">Absent Employees</p>
+                <span className={`w-1.5 h-1.5 rounded-full ${absentEmployees.length > 0 ? "bg-red-500" : "bg-gray-300"}`} />
+                <p className="text-[13px] font-semibold text-gray-900">Absent Employees</p>
               </div>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                absentEmployees.length > 0 ? "bg-red-100 text-red-700 border border-red-200" : "bg-gray-100 text-gray-400"
-              }`}>{absentEmployees.length}</span>
+              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded text-gray-500 bg-gray-100">{absentEmployees.length}</span>
             </div>
             {absentEmployees.length === 0 ? (
-              <div className="px-4 py-6 text-center">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <p className="text-xs text-gray-400">No absences recorded</p>
+              <div className="px-4 py-8 text-center">
+                <p className="text-[12px] text-gray-400">No absences recorded</p>
               </div>
             ) : (
               <div className="overflow-y-auto divide-y divide-gray-50" style={{ maxHeight: 280, scrollbarGutter: "stable" }}>
                 {absentEmployees.map(emp => (
                   <button key={emp.emp_id} onClick={() => setSelectedEmployee(emp)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50/50 transition-colors text-left">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${avatarColor(emp.emp_id)}`}>
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0 ${avatarColor(emp.emp_id)}`}>
                       {initials(emp.name)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 truncate">{emp.name}</p>
-                      <p className="text-[10px] text-gray-400 truncate">{emp.department || "—"}</p>
+                      <p className="text-[12px] font-medium text-gray-900 truncate">{emp.name}</p>
+                      <p className="text-[11px] text-gray-400 truncate">{emp.department || "—"}</p>
                     </div>
-                    <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full shrink-0">{getPeriodStats(emp).absent}d</span>
+                    <span className="text-[11px] font-medium text-red-600 shrink-0">{getPeriodStats(emp).absent}d</span>
                   </button>
                 ))}
               </div>
@@ -587,40 +572,31 @@ export default function OverviewPage({
           </div>
 
           {/* Miss Punch */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className={`px-4 py-3 border-b flex items-center justify-between ${
-              missPunchEmployees.length > 0 ? "bg-orange-50 border-orange-100" : "border-gray-100"
-            }`}>
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {missPunchEmployees.length > 0 && <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
-                <p className="text-sm font-bold text-gray-900">Miss Punch</p>
+                <span className={`w-1.5 h-1.5 rounded-full ${missPunchEmployees.length > 0 ? "bg-orange-500" : "bg-gray-300"}`} />
+                <p className="text-[13px] font-semibold text-gray-900">Miss Punch</p>
               </div>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                missPunchEmployees.length > 0 ? "bg-orange-100 text-orange-700 border border-orange-200" : "bg-gray-100 text-gray-400"
-              }`}>{missPunchEmployees.length}</span>
+              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded text-gray-500 bg-gray-100">{missPunchEmployees.length}</span>
             </div>
             {missPunchEmployees.length === 0 ? (
-              <div className="px-4 py-6 text-center">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <p className="text-xs text-gray-400">No miss punches recorded</p>
+              <div className="px-4 py-8 text-center">
+                <p className="text-[12px] text-gray-400">No miss punches recorded</p>
               </div>
             ) : (
               <div className="overflow-y-auto divide-y divide-gray-50" style={{ maxHeight: 280, scrollbarGutter: "stable" }}>
                 {missPunchEmployees.map(({ emp, days }) => (
                   <button key={emp.emp_id} onClick={() => setSelectedEmployee(emp)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/50 transition-colors text-left">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${avatarColor(emp.emp_id)}`}>
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0 ${avatarColor(emp.emp_id)}`}>
                       {initials(emp.name)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 truncate">{emp.name}</p>
-                      <p className="text-[10px] text-gray-400 truncate">{emp.department || "—"}</p>
+                      <p className="text-[12px] font-medium text-gray-900 truncate">{emp.name}</p>
+                      <p className="text-[11px] text-gray-400 truncate">{emp.department || "—"}</p>
                     </div>
-                    <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full shrink-0">{days.length}d</span>
+                    <span className="text-[11px] font-medium text-orange-600 shrink-0">{days.length}d</span>
                   </button>
                 ))}
               </div>
@@ -628,18 +604,17 @@ export default function OverviewPage({
           </div>
 
           {/* Most leave taken */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100">
-              <p className="text-sm font-bold text-gray-900">Most Leave Taken</p>
-              <p className="text-xs text-gray-400 mt-0.5">All types combined</p>
+              <p className="text-[13px] font-semibold text-gray-900">Most Leave Taken</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">All types combined</p>
             </div>
             {topLeaveEmployees.length === 0 ? (
-              <p className="px-4 py-6 text-xs text-center text-gray-400">No leave data available</p>
+              <p className="px-4 py-8 text-[12px] text-center text-gray-400">No leave data available</p>
             ) : (
               <div className="overflow-y-auto divide-y divide-gray-50" style={{ maxHeight: 280, scrollbarGutter: "stable" }}>
                 {topLeaveEmployees.map((emp, idx) => {
                   const ps  = getPeriodStats(emp);
-                  // cl/sl/pl/comp/wfh already include half-day contributions at 0.5 — don't add ps.half again
                   const total = ps.cl + ps.sl + ps.pl + ps.comp + ps.wfh + ps.absent;
                   const cl  = ps.cl;
                   const sl  = ps.sl;
@@ -648,20 +623,20 @@ export default function OverviewPage({
                   return (
                     <button key={emp.emp_id} onClick={() => setSelectedEmployee(emp)}
                       className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
-                      <span className="text-[10px] font-bold text-gray-300 w-4 shrink-0">#{idx + 1}</span>
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${avatarColor(emp.emp_id)}`}>
+                      <span className="text-[10px] text-gray-300 w-4 shrink-0">{idx + 1}</span>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0 ${avatarColor(emp.emp_id)}`}>
                         {initials(emp.name)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-800 truncate">{emp.name}</p>
+                        <p className="text-[12px] font-medium text-gray-900 truncate">{emp.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          {wfh > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold">WFH {fmtDays(wfh)}</span>}
-                          {cl > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">CL {fmtDays(cl)}</span>}
-                          {sl > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">SL {fmtDays(sl)}</span>}
-                          {abs > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 font-semibold">Abs {abs}</span>}
+                          {wfh > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 font-medium">WFH {fmtDays(wfh)}</span>}
+                          {cl > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">CL {fmtDays(cl)}</span>}
+                          {sl > 0  && <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-medium">SL {fmtDays(sl)}</span>}
+                          {abs > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-medium">Abs {abs}</span>}
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-gray-700 shrink-0">{fmtDays(total)}d</span>
+                      <span className="text-[12px] font-medium text-gray-700 shrink-0">{fmtDays(total)}d</span>
                     </button>
                   );
                 })}
@@ -672,50 +647,46 @@ export default function OverviewPage({
       </div>
 
       {/* ── Search + filter bar ───────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 space-y-3">
-        <div className="flex gap-3 items-center">
+      <div className="bg-white rounded-xl border border-gray-100 p-3.5 space-y-3">
+        <div className="flex gap-2.5 items-center">
           <div className="relative flex-1">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, employee ID or department…"
-              className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400 transition-all"
+              placeholder="Search by name, ID or department"
+              className="w-full pl-9 pr-9 py-2 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-900 transition-colors"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-gray-900 font-semibold">Sort</span>
-            <select
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400/40 bg-white cursor-pointer"
-            >
-              <option value="name">Name A–Z</option>
-              <option value="absent">Most Absent</option>
-              <option value="leave">Most Leave</option>
-              <option value="wfh">Most WFH</option>
-              <option value="hours">Most Hours</option>
-            </select>
-          </div>
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            className="text-[13px] border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 font-medium focus:outline-none focus:border-gray-900 bg-white cursor-pointer"
+          >
+            <option value="name">Name A–Z</option>
+            <option value="absent">Most Absent</option>
+            <option value="leave">Most Leave</option>
+            <option value="wfh">Most WFH</option>
+            <option value="hours">Most Hours</option>
+          </select>
         </div>
 
         {/* ── Hours filter — quick pills ── */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-900 font-semibold">Hours</span>
-          <span className="text-xs text-gray-400 font-medium">
+          <span className="text-[12px] text-gray-500">Hours</span>
+          <span className="text-[11px] text-gray-400">
             {periodMode === "week" ? "per week" : periodMode === "month" ? "per month" : periodMode === "year" ? "per year" : periodMode === "today" ? "today" : periodMode === "yesterday" ? "yesterday" : "in period"}
           </span>
-          <span className="w-px h-4 bg-gray-200" />
           {([{ label: "< 40 hrs", hours: 40 }, { label: "< 45 hrs", hours: 45 }] as const).map(preset => {
             const isActive = minHours === preset.hours && hoursDir === "lte";
             return (
@@ -725,67 +696,60 @@ export default function OverviewPage({
                   if (isActive) { setMinHours(0); }
                   else { setMinHours(preset.hours); setHoursDir(() => "lte"); }
                 }}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                className={`text-[12px] font-medium px-2.5 py-1 rounded-md transition-colors ${
                   isActive
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-indigo-300 hover:text-indigo-600"
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-50 text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 {preset.label}
-                {isActive && (
-                  <span className="ml-1.5 opacity-75">×</span>
-                )}
+                {isActive && <span className="ml-1 opacity-70">×</span>}
               </button>
             );
           })}
         </div>
 
-        <div className="flex items-center justify-between pt-0.5">
-          <p className="text-xs text-gray-500">
-            <span className="font-semibold text-gray-700">{filtered.length}</span> of {employees.length} employees
+        <div className="flex items-center justify-between pt-1">
+          <p className="text-[12px] text-gray-500">
+            <span className="font-medium text-gray-900">{filtered.length}</span> of {employees.length} employees
             <span className="mx-1.5 text-gray-300">·</span>
-            <span className="font-medium text-indigo-600">{periodLabel}</span>
-            {search && <span className="ml-1 text-gray-400">· "<span className="font-semibold text-gray-600">{search}</span>"</span>}
+            <span className="text-gray-600">{periodLabel}</span>
+            {search && <span className="ml-1 text-gray-400">· "<span className="text-gray-700">{search}</span>"</span>}
           </p>
           {(search || leaveFilter !== "all" || minHours > 0) && (
-            <button onClick={() => { setSearch(""); setLeaveFilter("all"); setMinHours(0); }} className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold">
-              Clear filters
+            <button onClick={() => { setSearch(""); setLeaveFilter("all"); setMinHours(0); }} className="text-[12px] text-gray-500 hover:text-gray-900 font-medium">
+              Clear all
             </button>
           )}
         </div>
       </div>
 
       {/* ── Employee table ────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-[13px]">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <th className="px-5 py-3.5 text-left">Employee</th>
-                <th className="px-5 py-3.5 text-left">Department</th>
-                <th className="px-4 py-3.5 text-center">Work Days</th>
-                <th className="px-4 py-3.5 text-center">Total Hrs</th>
-                <th className="px-4 py-3.5 text-center text-teal-600">WFH</th>
-                <th className="px-4 py-3.5 text-center text-blue-600">CL</th>
-                <th className="px-4 py-3.5 text-center text-purple-600">SL</th>
-                <th className="px-4 py-3.5 text-center text-violet-600">PL</th>
-                <th className="px-4 py-3.5 text-center text-amber-600">Comp</th>
-                <th className="px-4 py-3.5 text-center text-yellow-600">½ Day</th>
-                <th className="px-4 py-3.5 text-center text-red-600">Absent</th>
+              <tr className="border-b border-gray-100 text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-5 py-3 text-left">Employee</th>
+                <th className="px-5 py-3 text-left">Department</th>
+                <th className="px-4 py-3 text-center">Days</th>
+                <th className="px-4 py-3 text-center">Hours</th>
+                <th className="px-4 py-3 text-center">WFH</th>
+                <th className="px-4 py-3 text-center">CL</th>
+                <th className="px-4 py-3 text-center">SL</th>
+                <th className="px-4 py-3 text-center">PL</th>
+                <th className="px-4 py-3 text-center">Comp</th>
+                <th className="px-4 py-3 text-center">½ Day</th>
+                <th className="px-4 py-3 text-center">Absent</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-5 py-14 text-center">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-gray-500 text-sm font-semibold">No data recorded for this period</p>
-                    <p className="text-gray-400 text-xs mt-1">{periodLabel}</p>
-                    <button onClick={() => { setPeriodMode("month"); setSelMonth(new Date().getMonth()); setSelYear(new Date().getFullYear()); }} className="mt-3 text-xs text-indigo-600 hover:text-indigo-700 font-semibold">
+                    <p className="text-gray-700 text-[13px] font-medium">No data recorded for this period</p>
+                    <p className="text-gray-400 text-[12px] mt-1">{periodLabel}</p>
+                    <button onClick={() => { setPeriodMode("month"); setSelMonth(new Date().getMonth()); setSelYear(new Date().getFullYear()); }} className="mt-3 text-[12px] text-gray-500 hover:text-gray-900 font-medium underline underline-offset-2">
                       Go to current month
                     </button>
                   </td>
@@ -795,7 +759,7 @@ export default function OverviewPage({
                   const ps    = getPeriodStats(emp);
                   const color = avatarColor(emp.emp_id);
                   const cell  = (v: number, bg: string, text: string, title?: string) =>
-                    v > 0 ? <span title={title} className={`inline-flex min-w-[26px] h-6 px-1.5 items-center justify-center rounded-full ${bg} ${text} text-xs font-bold`}>{fmtDays(v)}</span>
+                    v > 0 ? <span title={title} className={`inline-flex min-w-[24px] h-[22px] px-1.5 items-center justify-center rounded ${bg} ${text} text-[11px] font-medium`}>{fmtDays(v)}</span>
                            : <span className="text-gray-200">—</span>;
                   // Tooltip for a leave-type cell showing the half-day breakdown if any
                   const tip = (full: number, half: number, label: string) =>
@@ -811,28 +775,28 @@ export default function OverviewPage({
                       ].filter(Boolean).join(" · ")
                     : undefined;
                   return (
-                    <tr key={emp.emp_id} onClick={() => setSelectedEmployee(emp)} className="hover:bg-indigo-50/40 cursor-pointer transition-colors group">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${color}`}>
+                    <tr key={emp.emp_id} onClick={() => setSelectedEmployee(emp)} className="hover:bg-gray-50 cursor-pointer transition-colors">
+                      <td className="px-5 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0 ${color}`}>
                             {initials(emp.name)}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors">{emp.name}</p>
-                            <p className="text-xs text-gray-400">ID {emp.emp_id}</p>
+                            <p className="font-medium text-gray-900">{emp.name}</p>
+                            <p className="text-[11px] text-gray-400">{emp.emp_id}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3 text-xs text-gray-500">{emp.department || "—"}</td>
-                      <td className="px-4 py-3 text-center font-medium text-gray-700">{ps.working}</td>
-                      <td className="px-4 py-3 text-center font-semibold text-gray-900">{ps.totalHours}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.wfh,  "bg-teal-100",   "text-teal-700",   tip(ps.wfh  - ps.halfWfh  * 0.5, ps.halfWfh,  "WFH"))}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.cl,   "bg-blue-100",   "text-blue-700",   tip(ps.cl   - ps.halfCl   * 0.5, ps.halfCl,   "CL"))}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.sl,   "bg-purple-100", "text-purple-700", tip(ps.sl   - ps.halfSl   * 0.5, ps.halfSl,   "SL"))}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.pl,   "bg-violet-100", "text-violet-700", tip(ps.pl   - ps.halfPl   * 0.5, ps.halfPl,   "PL"))}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.comp, "bg-amber-100",  "text-amber-700",  tip(ps.comp - ps.halfComp * 0.5, ps.halfComp, "Comp"))}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.half, "bg-yellow-100", "text-yellow-700", halfTip)}</td>
-                      <td className="px-4 py-3 text-center">{cell(ps.absent, "bg-red-100",  "text-red-700")}</td>
+                      <td className="px-5 py-2.5 text-[12px] text-gray-500">{emp.department || "—"}</td>
+                      <td className="px-4 py-2.5 text-center text-gray-700">{ps.working}</td>
+                      <td className="px-4 py-2.5 text-center font-medium text-gray-900 tabular-nums">{ps.totalHours}</td>
+                      <td className="px-4 py-2.5 text-center">{cell(ps.wfh,  "bg-teal-50",   "text-teal-700",   tip(ps.wfh  - ps.halfWfh  * 0.5, ps.halfWfh,  "WFH"))}</td>
+                      <td className="px-4 py-2.5 text-center">{cell(ps.cl,   "bg-blue-50",   "text-blue-700",   tip(ps.cl   - ps.halfCl   * 0.5, ps.halfCl,   "CL"))}</td>
+                      <td className="px-4 py-2.5 text-center">{cell(ps.sl,   "bg-purple-50", "text-purple-700", tip(ps.sl   - ps.halfSl   * 0.5, ps.halfSl,   "SL"))}</td>
+                      <td className="px-4 py-2.5 text-center">{cell(ps.pl,   "bg-violet-50", "text-violet-700", tip(ps.pl   - ps.halfPl   * 0.5, ps.halfPl,   "PL"))}</td>
+                      <td className="px-4 py-2.5 text-center">{cell(ps.comp, "bg-amber-50",  "text-amber-700",  tip(ps.comp - ps.halfComp * 0.5, ps.halfComp, "Comp"))}</td>
+                      <td className="px-4 py-2.5 text-center">{cell(ps.half, "bg-yellow-50", "text-yellow-700", halfTip)}</td>
+                      <td className="px-4 py-2.5 text-center">{cell(ps.absent, "bg-red-50",  "text-red-700")}</td>
                     </tr>
                   );
                 })
@@ -842,23 +806,8 @@ export default function OverviewPage({
         </div>
 
         {filtered.length > 0 && (
-          <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-            <p className="text-xs text-gray-400">{filtered.length} employees</p>
-            <div className="flex items-center gap-4 text-xs text-gray-400">
-              {[
-                { dot: "bg-teal-400",   label: "WFH"   },
-                { dot: "bg-blue-400",   label: "CL"    },
-                { dot: "bg-purple-400", label: "SL"    },
-                { dot: "bg-violet-400", label: "PL"    },
-                { dot: "bg-amber-400",  label: "Comp"  },
-                { dot: "bg-red-400",    label: "Absent"},
-              ].map(l => (
-                <span key={l.label} className="flex items-center gap-1.5">
-                  <span className={`w-2.5 h-2.5 rounded-full ${l.dot} inline-block`} />
-                  {l.label}
-                </span>
-              ))}
-            </div>
+          <div className="px-5 py-2.5 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+            <p className="text-[11px] text-gray-400">{filtered.length} employees</p>
           </div>
         )}
       </div>

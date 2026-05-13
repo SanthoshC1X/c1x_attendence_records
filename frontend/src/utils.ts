@@ -31,16 +31,16 @@ export function getStatusLabel(entry: Pick<DailyEntry | WeekDay, "status" | "sta
 }
 
 export const statusStyles: Record<string, string> = {
-  present:        "border-emerald-200 bg-emerald-100 text-emerald-800",
-  weekend_worked: "border-amber-200 bg-amber-100 text-amber-800",
-  wfh:            "border-teal-200 bg-teal-100 text-teal-800",
-  leave:          "border-rose-200 bg-rose-100 text-rose-800",
-  half_leave:     "border-yellow-200 bg-yellow-100 text-yellow-800",
-  comp_off:       "border-orange-200 bg-orange-100 text-orange-800",
-  holiday:        "border-slate-200 bg-slate-100 text-slate-600",
-  absent:         "border-red-200 bg-red-100 text-red-800",
-  lwd:            "border-indigo-200 bg-indigo-100 text-indigo-800",
-  default:        "border-slate-200 bg-slate-100 text-slate-600",
+  present:        "bg-emerald-50 text-emerald-700",
+  weekend_worked: "bg-amber-50 text-amber-700",
+  wfh:            "bg-teal-50 text-teal-700",
+  leave:          "bg-blue-50 text-blue-700",
+  half_leave:     "bg-yellow-50 text-yellow-700",
+  comp_off:       "bg-violet-50 text-violet-700",
+  holiday:        "bg-gray-50 text-gray-500",
+  absent:         "bg-red-50 text-red-700",
+  lwd:            "bg-indigo-50 text-indigo-700",
+  default:        "bg-gray-50 text-gray-500",
 };
 
 // ── Leave filter config ─────────────────────────────────────────────────────
