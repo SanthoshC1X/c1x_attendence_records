@@ -13,7 +13,7 @@ export default function LeaveAnalysisPage({ analyticsData, initialLeaveType }: P
 
   if (!analyticsData) {
     return (
-      <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+      <div className="flex items-center justify-center h-48 text-gray-400 text-[13px]">
         Analytics data not available. Change the period or re-generate the dashboard.
       </div>
     );
@@ -30,9 +30,9 @@ export default function LeaveAnalysisPage({ analyticsData, initialLeaveType }: P
   }) ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Leave type cards grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {leaveFilterConfig.map((lf) => {
           const data = leave[lf.key];
           const count = data?.count ?? 0;
@@ -46,30 +46,22 @@ export default function LeaveAnalysisPage({ analyticsData, initialLeaveType }: P
                 setSelectedType(isSelected ? null : lf.key);
                 setSearch("");
               }}
-              className={`text-left rounded-2xl border p-5 transition-all ${
+              className={`text-left rounded-xl border p-4 transition-all ${
                 isSelected
-                  ? "border-gray-900 bg-gray-900 text-white shadow-lg"
-                  : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md"
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-100 bg-white hover:border-gray-300"
               }`}
             >
-              <div className="flex items-start justify-between mb-3">
-                <span className={`text-xs font-semibold uppercase tracking-widest ${isSelected ? "text-gray-400" : "text-gray-400"}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${lf.dot} ${isSelected ? "opacity-100" : ""}`} />
+                <span className={`text-[11px] font-medium uppercase tracking-wider ${isSelected ? "text-white/60" : "text-gray-400"}`}>
                   {lf.fullLabel}
                 </span>
-                {isSelected && (
-                  <span className="text-gray-400 text-xs">×</span>
-                )}
               </div>
-              <p className={`text-4xl font-bold ${isSelected ? "text-white" : "text-gray-900"}`}>{count}</p>
-              <p className={`text-xs mt-1 ${isSelected ? "text-gray-400" : "text-gray-400"}`}>
+              <p className={`text-3xl font-semibold tracking-tight ${isSelected ? "text-white" : "text-gray-900"}`}>{count}</p>
+              <p className={`text-[11px] mt-1 ${isSelected ? "text-white/60" : "text-gray-400"}`}>
                 days · {empCount} employee{empCount !== 1 ? "s" : ""}
               </p>
-              {/* Mini bar */}
-              {count > 0 && !isSelected && (
-                <div className="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${lf.dot}`} style={{ width: `${Math.min(count * 4, 100)}%` }} />
-                </div>
-              )}
             </button>
           );
         })}
@@ -77,58 +69,57 @@ export default function LeaveAnalysisPage({ analyticsData, initialLeaveType }: P
 
       {/* Expanded employee list */}
       {selectedType && selectedData && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between gap-4">
             <div>
-              <h3 className="text-sm font-semibold text-gray-900">
-                {selectedCfg?.fullLabel} — {selectedData.count} day{selectedData.count !== 1 ? "s" : ""}
+              <h3 className="text-[14px] font-semibold text-gray-900">
+                {selectedCfg?.fullLabel} <span className="text-gray-400 font-normal">· {selectedData.count} day{selectedData.count !== 1 ? "s" : ""}</span>
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">{selectedData.employees.length} employees affected</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{selectedData.employees.length} employees affected</p>
             </div>
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Filter employees…"
-                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-56"
+                placeholder="Filter employees"
+                className="pl-9 pr-3 py-1.5 border border-gray-200 rounded-md text-[13px] focus:outline-none focus:border-gray-900 w-56"
               />
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs border-b border-gray-100">
+            <table className="w-full text-[13px]">
+              <thead className="text-[11px] text-gray-400 border-b border-gray-100 uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-3 text-left font-semibold">Employee</th>
-                  <th className="px-6 py-3 text-left font-semibold">Department</th>
-                  <th className="px-6 py-3 text-left font-semibold">Leave Days</th>
-                  <th className="px-6 py-3 text-left font-semibold">Total Hours</th>
+                  <th className="px-5 py-3 text-left font-medium">Employee</th>
+                  <th className="px-5 py-3 text-left font-medium">Department</th>
+                  <th className="px-5 py-3 text-left font-medium">Leave Days</th>
+                  <th className="px-5 py-3 text-left font-medium">Total Hours</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filteredEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-6 text-center text-gray-400 text-sm">No employees found.</td>
+                    <td colSpan={4} className="px-5 py-8 text-center text-gray-400 text-[13px]">No employees found.</td>
                   </tr>
                 ) : (
                   filteredEmployees
                     .sort((a, b) => b.leave_count - a.leave_count)
                     .map((emp) => (
                       <tr key={emp.emp_id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-3">
+                        <td className="px-5 py-2.5">
                           <p className="font-medium text-gray-900">{emp.name}</p>
-                          <p className="text-xs text-gray-400">ID {emp.emp_id}</p>
+                          <p className="text-[11px] text-gray-400">{emp.emp_id}</p>
                         </td>
-                        <td className="px-6 py-3 text-gray-600">{emp.department}</td>
-                        <td className="px-6 py-3">
-                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${selectedCfg?.chip}`}>
-                            {emp.leave_count} day{emp.leave_count !== 1 ? "s" : ""}
-                          </span>
+                        <td className="px-5 py-2.5 text-[12px] text-gray-500">{emp.department}</td>
+                        <td className="px-5 py-2.5">
+                          <span className="text-gray-900 font-medium">{emp.leave_count}</span>
+                          <span className="text-gray-400 ml-1 text-[12px]">day{emp.leave_count !== 1 ? "s" : ""}</span>
                         </td>
-                        <td className="px-6 py-3 font-semibold text-gray-700">{emp.total_hours}</td>
+                        <td className="px-5 py-2.5 text-gray-700 tabular-nums">{emp.total_hours}</td>
                       </tr>
                     ))
                 )}
@@ -140,8 +131,8 @@ export default function LeaveAnalysisPage({ analyticsData, initialLeaveType }: P
 
       {/* No type selected hint */}
       {!selectedType && (
-        <div className="text-center py-8 text-sm text-gray-400">
-          Click any leave type card above to see the employee breakdown.
+        <div className="text-center py-8 text-[13px] text-gray-400">
+          Click any leave type above to see the employee breakdown.
         </div>
       )}
     </div>
