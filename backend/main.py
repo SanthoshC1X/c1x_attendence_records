@@ -740,14 +740,52 @@ async def export_dashboard_excel():
             if label not in week_labels:
                 week_labels.append(label)
 
-        total_cols = 4 + len(month_dates) + len(leave_cols) + 3 + len(week_labels) + 1
+        # Inline week-total columns appear after each Sunday in the month, and
+        # after the final date if the month ends on a non-Sunday (partial trailing week).
+        end_of_week_idx_set: set[int] = set()
+        for i, d_obj in enumerate(month_date_objs):
+            if d_obj.weekday() == 6:
+                end_of_week_idx_set.add(i)
+        if month_date_objs and (len(month_date_objs) - 1) not in end_of_week_idx_set:
+            end_of_week_idx_set.add(len(month_date_objs) - 1)
+        end_of_week_indices = sorted(end_of_week_idx_set)
+
+        # Layout: assign each date a column and reserve a column after each end-of-week date
+        date_col_map: dict[int, int] = {}
+        inline_week_col_map: dict[int, int] = {}
+        col_cursor = 5
+        for i in range(len(month_dates)):
+            date_col_map[i] = col_cursor
+            col_cursor += 1
+            if i in end_of_week_idx_set:
+                inline_week_col_map[i] = col_cursor
+                col_cursor += 1
+
+        leave_start_col = col_cursor
+        total_summary_start_col = leave_start_col + len(leave_cols)
+        week_bucket_start_col = total_summary_start_col + 3
+        total_hours_col = week_bucket_start_col + len(week_labels)
+        total_cols = total_hours_col
+
+        # Map each date index to the end-of-week index that closes its week
+        date_to_segment_idx: dict[int, int] = {}
+        seg_pos = 0
+        for i in range(len(month_dates)):
+            while seg_pos < len(end_of_week_indices) and i > end_of_week_indices[seg_pos]:
+                seg_pos += 1
+            if seg_pos < len(end_of_week_indices):
+                date_to_segment_idx[i] = end_of_week_indices[seg_pos]
+
         ws.cell(row=1, column=1, value=title)
         ws.cell(row=1, column=1).font = Font(bold=True, size=12)
         ws.cell(row=1, column=1).alignment = Alignment(horizontal="left", vertical="center")
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_cols)
 
         headers = ["S.No", "Emp ID", "Name", "Department"]
-        headers.extend(d_obj.strftime("%d\n%a") for d_obj in month_date_objs)
+        for i, d_obj in enumerate(month_date_objs):
+            headers.append(d_obj.strftime("%d\n%a"))
+            if i in end_of_week_idx_set:
+                headers.append("Week\nTotal")
         headers.extend(leave_cols)
         headers.extend(["Worked Days", "Absent", "Leave Days"])
         headers.extend(f"{label}\nHours" for label in week_labels)
@@ -775,9 +813,10 @@ async def export_dashboard_excel():
             weekday_minutes_total = 0
             weekend_minutes_total = 0
             week_minutes = {label: {"weekday": 0, "weekend": 0} for label in week_labels}
+            inline_segment_minutes = {eow: {"weekday": 0, "weekend": 0} for eow in end_of_week_indices}
 
             for index, date_str in enumerate(month_dates):
-                col = 5 + index
+                col = date_col_map[index]
                 day = daily_map.get(date_str)
                 cell = ws.cell(row=row, column=col, value=status_code(day) if day else "")
                 cell.alignment = center
@@ -790,6 +829,7 @@ async def export_dashboard_excel():
                 minutes = day.get("total_minutes") or 0
                 is_weekend = bool(day.get("is_weekend"))
                 week_label = f"W{((_dt.strptime(date_str, '%Y-%m-%d').day - 1) // 7) + 1}"
+                seg_idx = date_to_segment_idx.get(index)
 
                 if status_type in ("present", "weekend_worked") and minutes > 0:
                     cell.value = day.get("total_hhmm") or hhmm(minutes)
@@ -804,9 +844,13 @@ async def export_dashboard_excel():
                     if is_weekend or status_type == "weekend_worked":
                         weekend_minutes_total += minutes
                         week_minutes[week_label]["weekend"] += minutes
+                        if seg_idx is not None:
+                            inline_segment_minutes[seg_idx]["weekend"] += minutes
                     else:
                         weekday_minutes_total += minutes
                         week_minutes[week_label]["weekday"] += minutes
+                        if seg_idx is not None:
+                            inline_segment_minutes[seg_idx]["weekday"] += minutes
 
                 if status_type in ("present", "weekend_worked"):
                     present_count += 1
@@ -831,27 +875,38 @@ async def export_dashboard_excel():
                     elif leave_subtype == "pl":
                         pl_count += 1
 
-            leave_start = 5 + len(month_dates)
+            # Inline week totals (one column after each Sunday / final partial week)
+            for eow_idx, week_col in inline_week_col_map.items():
+                weekday_part = inline_segment_minutes[eow_idx]["weekday"]
+                weekend_part = inline_segment_minutes[eow_idx]["weekend"]
+                cell = ws.cell(
+                    row=row,
+                    column=week_col,
+                    value=format_total_with_extra(weekday_part, weekend_part),
+                )
+                cell.alignment = center
+                cell.border = thin_border
+                cell.font = total_with_extra_font if weekend_part else bold_font
+                cell.fill = fills["week_total_extra"] if weekend_part else fills["week_total"]
+
             leave_values = [wfh_count, sl_count, cl_count, pl_count, comp_count, half_count]
             for offset, value in enumerate(leave_values):
-                cell = ws.cell(row=row, column=leave_start + offset, value=value if value else 0)
+                cell = ws.cell(row=row, column=leave_start_col + offset, value=value if value else 0)
                 cell.alignment = center
                 cell.border = thin_border
 
-            total_start = leave_start + len(leave_cols)
             totals = [present_count, absent_count, leave_days_count]
             for offset, value in enumerate(totals):
-                cell = ws.cell(row=row, column=total_start + offset, value=value)
+                cell = ws.cell(row=row, column=total_summary_start_col + offset, value=value)
                 cell.alignment = center
                 cell.border = thin_border
 
-            week_start = total_start + 3
             for offset, label in enumerate(week_labels):
                 weekday_part = week_minutes[label]["weekday"]
                 weekend_part = week_minutes[label]["weekend"]
                 cell = ws.cell(
                     row=row,
-                    column=week_start + offset,
+                    column=week_bucket_start_col + offset,
                     value=format_total_with_extra(weekday_part, weekend_part),
                 )
                 cell.alignment = center
@@ -861,7 +916,7 @@ async def export_dashboard_excel():
 
             total_cell = ws.cell(
                 row=row,
-                column=week_start + len(week_labels),
+                column=total_hours_col,
                 value=format_total_with_extra(weekday_minutes_total, weekend_minutes_total),
             )
             total_cell.alignment = center
@@ -876,18 +931,16 @@ async def export_dashboard_excel():
         ws.column_dimensions["B"].width = 12
         ws.column_dimensions["C"].width = 28
         ws.column_dimensions["D"].width = 20
-        for col in range(5, 5 + len(month_dates)):
-            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 8.5
+        for date_col in date_col_map.values():
+            ws.column_dimensions[openpyxl.utils.get_column_letter(date_col)].width = 8.5
+        for week_col in inline_week_col_map.values():
+            ws.column_dimensions[openpyxl.utils.get_column_letter(week_col)].width = 14
 
-        leave_start_col = 5 + len(month_dates)
-        total_start_col = leave_start_col + len(leave_cols)
-        week_start_col = total_start_col + 3
-
-        for col in range(leave_start_col, total_start_col):
+        for col in range(leave_start_col, total_summary_start_col):
             ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 12
-        for col in range(total_start_col, week_start_col):
+        for col in range(total_summary_start_col, week_bucket_start_col):
             ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 13
-        for col in range(week_start_col, ws.max_column + 1):
+        for col in range(week_bucket_start_col, total_hours_col + 1):
             ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 15
         ws.freeze_panes = "E3"
 
@@ -910,51 +963,6 @@ async def export_dashboard_excel():
             build_month_sheet(ws, month_dates, title)
     else:
         wb.active.title = "Attendance"
-
-    ws2 = wb.create_sheet("Daily Detail")
-    detail_headers = ["S.No", "Emp ID", "Name", "Department", "Date", "Day", "Status", "In Time", "Out Time", "Hours"]
-    style_header_row(ws2, 1, detail_headers)
-
-    detail_row = 2
-    sno = 1
-    for emp in employees:
-        for day in emp.get("daily", []):
-            row_values = [
-                sno,
-                emp["emp_id"],
-                emp["name"],
-                emp["department"],
-                day["date"],
-                day["weekday"],
-                day["status"],
-                day.get("in_time", ""),
-                day.get("out_time", ""),
-                day.get("total_hhmm", ""),
-            ]
-            for col, value in enumerate(row_values, 1):
-                cell = ws2.cell(row=detail_row, column=col, value=value)
-                cell.alignment = center if col not in (3, 4) else Alignment(horizontal="left", vertical="center")
-                cell.border = thin_border
-
-            fill = fill_for(day)
-            if fill:
-                for col in range(1, 11):
-                    ws2.cell(row=detail_row, column=col).fill = fill
-
-            detail_row += 1
-            sno += 1
-
-    ws2.column_dimensions["A"].width = 6
-    ws2.column_dimensions["B"].width = 10
-    ws2.column_dimensions["C"].width = 24
-    ws2.column_dimensions["D"].width = 18
-    ws2.column_dimensions["E"].width = 12
-    ws2.column_dimensions["F"].width = 8
-    ws2.column_dimensions["G"].width = 14
-    ws2.column_dimensions["H"].width = 10
-    ws2.column_dimensions["I"].width = 10
-    ws2.column_dimensions["J"].width = 10
-    ws2.freeze_panes = "E2"
 
     ws3 = wb.create_sheet("Legend")
     legend = [
