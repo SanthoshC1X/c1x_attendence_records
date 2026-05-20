@@ -1,7 +1,7 @@
 {
-  "admin_attendance_sheet_id": "1TP4fi2-Y9Yh5MP_JgakWKBo2ypE6dOEclCAl2V82ZmI",
-  "admin_leave_sheet_id": "1ZA1cZyto9m91QBlOmGwxovOuO425EL5izO7qrh5dMEk",
+  "admin_attendance_sheet_id": "1hsR32xb0KNLJhy_8y7VN1xNb9kUXwLYvQ8LXxPJxDN0",
+  "admin_leave_sheet_id": "1084uO63e7Jh5_V7bd_tYknnlkbz5CT6RyLeTyrEhkaw",
   "google_api_key": "AIzaSyBdFVjm8RQ4Ch6fpOETT5MeWLsvRLF72cc",
-  "admin_attendance_path": "https://docs.google.com/spreadsheets/d/1TP4fi2-Y9Yh5MP_JgakWKBo2ypE6dOEclCAl2V82ZmI/edit?gid=243081560#gid=243081560",
-  "admin_leave_path": "https://docs.google.com/spreadsheets/d/1ZA1cZyto9m91QBlOmGwxovOuO425EL5izO7qrh5dMEk/edit?gid=243081560#gid=243081560"
+  "admin_attendance_path": "https://docs.google.com/spreadsheets/d/1hsR32xb0KNLJhy_8y7VN1xNb9kUXwLYvQ8LXxPJxDN0/edit",
+  "admin_leave_path": "https://docs.google.com/spreadsheets/d/1084uO63e7Jh5_V7bd_tYknnlkbz5CT6RyLeTyrEhkaw/edit"
 }
