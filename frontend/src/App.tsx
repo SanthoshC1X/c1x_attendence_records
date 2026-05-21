@@ -6,6 +6,7 @@ import LoginPage from "./pages/LoginPage";
 import AdminSetupPage from "./pages/AdminSetupPage";
 import AppShell from "./components/AppShell";
 import OverviewPage from "./pages/OverviewPage";
+import CEOReportPage from "./pages/CEOReportPage";
 import EmployeesPage from "./pages/EmployeesPage";
 import AttendancePage from "./pages/AttendancePage";
 import LeaveAnalysisPage from "./pages/LeaveAnalysisPage";
@@ -38,7 +39,7 @@ export default function App() {
   const [overviewMinHours, setOverviewMinHours] = useState(0);
   const [overviewHoursDir, setOverviewHoursDir] = useState<"gte" | "lte">("gte");
 
-  const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("yesterday");
   const [selMonth, setSelMonth] = useState(new Date().getMonth());
   const [selYear, setSelYear] = useState(new Date().getFullYear());
   const [selWeek, setSelWeek] = useState(() => Math.ceil(new Date().getDate() / 7));
@@ -265,6 +266,9 @@ export default function App() {
           hoursDir={overviewHoursDir}
           onHoursDirChange={setOverviewHoursDir}
         />
+      )}
+      {activePage === "ceo" && (
+        <CEOReportPage dashboard={dashboard} />
       )}
       {activePage === "employees" && (
         <EmployeesPage dashboard={dashboard} analyticsData={analyticsData} />

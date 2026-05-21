@@ -23,6 +23,13 @@ const navItems: NavItem[] = [
     icon: <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M3 12l2-2 7-7 7 7 2 2M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0h6m-6 0v-4a1 1 0 011-1h2a1 1 0 011 1v4" /></svg>,
   },
   {
+    key: "ceo",
+    label: "CEO Report",
+    shortLabel: "CEO",
+    description: "Daily snapshot for leadership",
+    icon: <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M3 17l6-6 4 4 8-8M14 7h7v7" /></svg>,
+  },
+  {
     key: "employees",
     label: "Employees",
     shortLabel: "Employees",
@@ -61,6 +68,7 @@ const navItems: NavItem[] = [
 
 const pageTitles: Record<AppPage, string> = {
   overview: "Overview",
+  ceo: "CEO Report",
   employees: "Employees",
   attendance: "Attendance",
   leave: "Leave Analysis",
@@ -70,6 +78,7 @@ const pageTitles: Record<AppPage, string> = {
 
 const pageDescriptions: Record<AppPage, string> = {
   overview: "Team pulse, leave trends, and anomalies.",
+  ceo: "Yesterday's leave, late arrivals, and short workdays at a glance.",
   employees: "Employee drilldown and comparisons.",
   attendance: "Compact attendance table and sorting.",
   leave: "Leave mix and affected employees.",
