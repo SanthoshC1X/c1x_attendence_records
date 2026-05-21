@@ -164,4 +164,4 @@ export interface UnderperformerData {
 
 // ── App navigation ──────────────────────────────────────────────────────────
 
-export type AppPage = "overview" | "employees" | "attendance" | "leave" | "reports" | "misspunch";
+export type AppPage = "overview" | "ceo" | "employees" | "attendance" | "leave" | "reports" | "misspunch";
