@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { DashboardData, EmployeeDashboard, DailyEntry, PeriodState } from "../types";
-import { dateInPeriod, describePeriod } from "../utils";
+import { dateInPeriod, describePeriod, getMonthIsoWeeks } from "../utils";
 import EmployeeListModal from "../components/EmployeeListModal";
 import EmployeeMonthlyCalendar from "../components/EmployeeMonthlyCalendar";
 
@@ -8,8 +8,6 @@ interface Props {
   dashboard: DashboardData;
   periodState: PeriodState;
 }
-
-type HoursThreshold = "all" | 5 | 6 | 7 | 8 | 9;
 
 function parseFirstPunchMinutes(t: string): number | null {
   if (!t) return null;
@@ -22,6 +20,7 @@ function parseFirstPunchMinutes(t: string): number | null {
 }
 
 const LATE_CUTOFF_MIN = 12 * 60;
+const TARGET_MINUTES_PER_WEEKDAY = 9 * 60;
 
 type Category = "present" | "absent" | "wfh" | "cl" | "sl" | "pl" | "comp_off" | "half_leave";
 
@@ -37,7 +36,6 @@ const CATEGORY_META: Record<Category, { label: string; title: string; accent: st
 };
 
 const SUMMARY_ORDER: Category[] = ["present", "absent", "wfh", "cl", "sl", "pl", "comp_off", "half_leave"];
-
 const LEAVE_LIST_ORDER: Category[] = ["wfh", "cl", "sl", "pl", "comp_off", "half_leave"];
 
 function rowMatches(category: Category, day: DailyEntry): boolean {
@@ -60,8 +58,83 @@ interface DayRow {
   day: DailyEntry;
 }
 
+interface WeeklyUnderEmployee {
+  emp: EmployeeDashboard;
+  actualMinutes: number;
+  expectedMinutes: number;
+  deficitMinutes: number;
+  trackedWeekdays: number;
+}
+
+interface WeeklyUnderSection {
+  key: string;
+  weekLabel: string;
+  sliceLabel: string;
+  throughLabel: string;
+  expectedMinutes: number;
+  employees: WeeklyUnderEmployee[];
+}
+
+interface WeeklyUnderMonthCard {
+  key: string;
+  title: string;
+  throughLabel: string;
+  flaggedCount: number;
+  weeks: WeeklyUnderSection[];
+}
+
+function isoToDate(iso: string): Date {
+  return new Date(`${iso}T00:00:00`);
+}
+
+function toIso(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function startOfIsoWeek(date: Date): Date {
+  const d = new Date(date);
+  const dow = d.getDay();
+  const daysToMon = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + daysToMon);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfIsoWeek(date: Date): Date {
+  const d = startOfIsoWeek(date);
+  d.setDate(d.getDate() + 6);
+  return d;
+}
+
+function isWeekdayIso(iso: string): boolean {
+  const dow = isoToDate(iso).getDay();
+  return dow >= 1 && dow <= 5;
+}
+
+function workedMinutes(day: DailyEntry | undefined): number {
+  if (!day || typeof day.total_minutes !== "number" || day.total_minutes <= 0) return 0;
+  return day.total_minutes;
+}
+
+function formatShort(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
+
+function formatMonthYear(year: number, monthIndex: number): string {
+  return new Date(year, monthIndex, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}
+
+function fmtHours(minutes: number): string {
+  const hh = Math.floor(minutes / 60);
+  const mm = minutes % 60;
+  return `${hh}h ${String(mm).padStart(2, "0")}m`;
+}
+
 export default function CEOReportPage({ dashboard, periodState }: Props) {
-  const [hoursThreshold, setHoursThreshold] = useState<HoursThreshold>("all");
   const [modalCategory, setModalCategory] = useState<Category | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDashboard | null>(null);
 
@@ -112,7 +185,6 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
     return groups;
   }, [rows]);
 
-  // Unique employees per category for the popup
   const categoryEmployees = useMemo(() => {
     const out: Record<Category, EmployeeDashboard[]> = {
       present: [], absent: [], wfh: [], cl: [], sl: [], pl: [], comp_off: [], half_leave: [],
@@ -140,20 +212,103 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
       .sort((a, b) => (parseFirstPunchMinutes(a.day.in_time) ?? 0) - (parseFirstPunchMinutes(b.day.in_time) ?? 0));
   }, [rows]);
 
-  const shortWorkdays = useMemo(() => {
-    const cap = hoursThreshold === "all" ? 8 : hoursThreshold;
-    const capMins = cap * 60;
-    return rows
-      .filter(({ day }) => {
-        if (day.status_type !== "present" && day.status_type !== "weekend_worked") return false;
-        const mins = day.total_minutes ?? 0;
-        return mins > 0 && mins < capMins;
-      })
-      .sort((a, b) => (a.day.total_minutes ?? 0) - (b.day.total_minutes ?? 0));
-  }, [rows, hoursThreshold]);
+  const weeklyUnderHoursByMonth = useMemo(() => {
+    if (dashboard.dates_processed.length === 0) return [] as WeeklyUnderMonthCard[];
+
+    const dayMaps = new Map<string, Map<string, DailyEntry>>();
+    const firstActiveDates = new Map<string, string>();
+
+    for (const emp of dashboard.employees) {
+      const perDay = new Map<string, DailyEntry>();
+      let firstActive: string | null = null;
+      for (const day of emp.daily) {
+        perDay.set(day.date, day);
+        if (!firstActive && day.status_type) firstActive = day.date;
+      }
+      dayMaps.set(emp.emp_id, perDay);
+      if (firstActive) firstActiveDates.set(emp.emp_id, firstActive);
+    }
+
+    const monthMap = new Map<string, string[]>();
+    for (const iso of dashboard.dates_processed) {
+      const key = iso.slice(0, 7);
+      const bucket = monthMap.get(key);
+      if (bucket) bucket.push(iso);
+      else monthMap.set(key, [iso]);
+    }
+
+    return Array.from(monthMap.entries()).map(([monthKey, monthDates]) => {
+      monthDates.sort();
+      const [yearStr, monthStr] = monthKey.split("-");
+      const year = Number(yearStr);
+      const monthIndex = Number(monthStr) - 1;
+      const latestMonthIso = monthDates[monthDates.length - 1];
+
+      const weeks = getMonthIsoWeeks(year, monthIndex)
+        .map((slice) => {
+          const sliceStartIso = toIso(slice.start);
+          const sliceEndIso = toIso(slice.end);
+          const visibleDates = monthDates.filter((iso) => iso >= sliceStartIso && iso <= sliceEndIso);
+          if (visibleDates.length === 0) return null;
+
+          const fullWeekStart = startOfIsoWeek(slice.start);
+          const fullWeekEnd = endOfIsoWeek(slice.start);
+          const sectionExpectedMinutes = visibleDates.filter(isWeekdayIso).length * TARGET_MINUTES_PER_WEEKDAY;
+
+          const employees = dashboard.employees
+            .map((emp) => {
+              const firstActive = firstActiveDates.get(emp.emp_id);
+              if (!firstActive) return null;
+
+              const trackedDates = visibleDates.filter((iso) => iso >= firstActive);
+              const trackedWeekdays = trackedDates.filter(isWeekdayIso).length;
+              if (trackedWeekdays === 0) return null;
+
+              const actualMinutes = trackedDates.reduce((sum, iso) => {
+                return sum + workedMinutes(dayMaps.get(emp.emp_id)?.get(iso));
+              }, 0);
+              const expectedMinutes = trackedWeekdays * TARGET_MINUTES_PER_WEEKDAY;
+              if (actualMinutes >= expectedMinutes) return null;
+
+              return {
+                emp,
+                actualMinutes,
+                expectedMinutes,
+                deficitMinutes: expectedMinutes - actualMinutes,
+                trackedWeekdays,
+              } satisfies WeeklyUnderEmployee;
+            })
+            .filter((item): item is WeeklyUnderEmployee => item !== null)
+            .sort((a, b) => {
+              if (b.deficitMinutes !== a.deficitMinutes) return b.deficitMinutes - a.deficitMinutes;
+              if (a.actualMinutes !== b.actualMinutes) return a.actualMinutes - b.actualMinutes;
+              return a.emp.name.localeCompare(b.emp.name);
+            });
+
+          return {
+            key: `${monthKey}-${slice.weekNum}`,
+            weekLabel: `${formatShort(toIso(fullWeekStart))} - ${formatShort(toIso(fullWeekEnd))}`,
+            sliceLabel: `${formatShort(visibleDates[0])}${visibleDates.length > 1 ? ` - ${formatShort(visibleDates[visibleDates.length - 1])}` : ""}`,
+            throughLabel: visibleDates[visibleDates.length - 1] === latestMonthIso ? `Through ${formatShort(latestMonthIso)}` : `Clipped at ${formatShort(visibleDates[visibleDates.length - 1])}`,
+            expectedMinutes: sectionExpectedMinutes,
+            employees,
+          } satisfies WeeklyUnderSection;
+        })
+        .filter((week): week is WeeklyUnderSection => week !== null);
+
+      return {
+        key: monthKey,
+        title: formatMonthYear(year, monthIndex),
+        throughLabel: `Data through ${formatShort(latestMonthIso)}`,
+        flaggedCount: weeks.reduce((sum, week) => sum + week.employees.length, 0),
+        weeks,
+      } satisfies WeeklyUnderMonthCard;
+    });
+  }, [dashboard]);
 
   const hasData = rows.length > 0;
   const periodLabel = describePeriod(periodState);
+  const totalWeeklyFlags = weeklyUnderHoursByMonth.reduce((sum, month) => sum + month.flaggedCount, 0);
 
   return (
     <div className="space-y-6">
@@ -172,7 +327,6 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
         </div>
       ) : (
         <>
-          {/* Headline cards — clickable */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
             {SUMMARY_ORDER.map((key) => {
               const meta = CATEGORY_META[key];
@@ -189,7 +343,6 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
             })}
           </div>
 
-          {/* Who's away */}
           <Section title="Who's away" subtitle={`Leave, WFH and comp-off in ${periodLabel}`}>
             <div className="divide-y divide-slate-100">
               {LEAVE_LIST_ORDER.map((key) => {
@@ -217,7 +370,7 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
                           </div>
                           {day.status_type === "half_leave" && day.leave_subtype && (
                             <span className="ml-2 shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">
-                              {day.leave_subtype.replace("half_", "½ ").toUpperCase()}
+                              {day.leave_subtype.replace("half_", "1/2 ").toUpperCase()}
                             </span>
                           )}
                         </li>
@@ -232,7 +385,6 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
             </div>
           </Section>
 
-          {/* Late arrivals */}
           <Section
             title="Late arrivals"
             subtitle="First punch after 12:00 PM"
@@ -258,59 +410,75 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
             )}
           </Section>
 
-          {/* Short workdays */}
           <Section
-            title="Short workdays"
-            subtitle="Present employees who worked under the chosen threshold"
-            badge={<span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-800 ring-1 ring-rose-200">{shortWorkdays.length}</span>}
+            title="Weekly under 45 hours"
+            subtitle="Monthly cards split by ISO week slices. Cross-month weeks are prorated to the visible tracked weekdays in each month."
+            badge={<span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-800 ring-1 ring-rose-200">{totalWeeklyFlags}</span>}
           >
-            <div className="border-b border-slate-100 px-5 py-3">
-              <div className="flex flex-wrap gap-1.5">
-                {(["all", 5, 6, 7, 8, 9] as const).map((t) => {
-                  const isActive = hoursThreshold === t;
-                  const label = t === "all" ? "All under-performers (<8h)" : `< ${t}h`;
-                  return (
-                    <button
-                      key={String(t)}
-                      onClick={() => setHoursThreshold(t)}
-                      className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
-                        isActive ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {shortWorkdays.length === 0 ? (
-              <div className="px-5 py-8 text-center text-[12.5px] text-slate-500">Everyone clocked at or above the threshold.</div>
+            {weeklyUnderHoursByMonth.every((month) => month.flaggedCount === 0) ? (
+              <div className="px-5 py-8 text-center text-[12.5px] text-slate-500">Nobody is below the weekly target in the available month slices.</div>
             ) : (
-              <ul className="divide-y divide-slate-100">
-                {shortWorkdays.map(({ emp, day }, idx) => {
-                  const mins = day.total_minutes ?? 0;
-                  const hh = Math.floor(mins / 60);
-                  const mm = mins % 60;
-                  return (
-                    <li key={`${emp.emp_id}-${day.date}-${idx}`} className="flex items-center justify-between px-5 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-[13px] font-medium text-slate-900">{emp.name}</p>
-                        <p className="truncate text-[11.5px] text-slate-500">{emp.department || "—"} · {formatShort(day.date)} · ID {emp.emp_id}</p>
+              <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
+                {weeklyUnderHoursByMonth.map((month) => (
+                  <div key={month.key} className="overflow-hidden rounded-[20px] border border-slate-200/70 bg-slate-50/60">
+                    <div className="flex items-start justify-between border-b border-slate-200/70 bg-white/85 px-4 py-3">
+                      <div>
+                        <h4 className="text-[15px] font-semibold tracking-tight text-slate-900">{month.title}</h4>
+                        <p className="mt-0.5 text-[11.5px] text-slate-500">{month.throughLabel}</p>
                       </div>
-                      <div className="ml-3 shrink-0 text-right">
-                        <p className="text-[13px] font-semibold text-rose-700 tabular-nums">{hh}h {String(mm).padStart(2, "0")}m</p>
-                        <p className="text-[11px] text-slate-500">{day.in_time || "—"} → {day.out_time || "—"}</p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                      <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200">
+                        {month.flaggedCount} flags
+                      </span>
+                    </div>
+
+                    <div className="divide-y divide-slate-200/70">
+                      {month.weeks.map((week) => (
+                        <div key={week.key} className="bg-white/70">
+                          <div className="flex items-start justify-between px-4 py-3">
+                            <div>
+                              <p className="text-[12.5px] font-semibold text-slate-900">{week.weekLabel}</p>
+                              <p className="mt-0.5 text-[11px] text-slate-500">
+                                {week.sliceLabel} · target {fmtHours(week.expectedMinutes)} · {week.throughLabel}
+                              </p>
+                            </div>
+                            <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1 ${week.employees.length > 0 ? "bg-rose-50 text-rose-700 ring-rose-200" : "bg-emerald-50 text-emerald-700 ring-emerald-200"}`}>
+                              {week.employees.length > 0 ? `${week.employees.length} below target` : "Met target"}
+                            </span>
+                          </div>
+
+                          {week.employees.length === 0 ? (
+                            <div className="px-4 pb-4 text-[11.5px] text-slate-500">Everyone in this week slice met the prorated target.</div>
+                          ) : (
+                            <ul className="divide-y divide-slate-100">
+                              {week.employees.map((item) => (
+                                <li key={`${week.key}-${item.emp.emp_id}`} className="flex items-center justify-between px-4 py-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-[13px] font-medium text-slate-900">{item.emp.name}</p>
+                                    <p className="truncate text-[11.5px] text-slate-500">
+                                      {item.emp.department || "—"} · ID {item.emp.emp_id} · tracked {item.trackedWeekdays} weekday{item.trackedWeekdays === 1 ? "" : "s"}
+                                    </p>
+                                  </div>
+                                  <div className="ml-3 shrink-0 text-right">
+                                    <p className="text-[13px] font-semibold text-rose-700 tabular-nums">
+                                      {fmtHours(item.actualMinutes)} / {fmtHours(item.expectedMinutes)}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500">short by {fmtHours(item.deficitMinutes)}</p>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </Section>
         </>
       )}
 
-      {/* Status-card popup */}
       <EmployeeListModal
         open={modalCategory !== null}
         title={modalCategory ? CATEGORY_META[modalCategory].title : ""}
@@ -323,18 +491,12 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
         }}
       />
 
-      {/* Monthly attendance calendar overlay */}
       <EmployeeMonthlyCalendar
         employee={selectedEmployee}
         onClose={() => setSelectedEmployee(null)}
       />
     </div>
   );
-}
-
-function formatShort(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
 
 function Section({ title, subtitle, badge, children }: { title: string; subtitle?: string; badge?: React.ReactNode; children: React.ReactNode }) {
