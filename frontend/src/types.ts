@@ -1,23 +1,19 @@
 // ── Period filter ─────────────────────────────────────────────────────────────
 
-export type PeriodMode = "yesterday" | "today" | "week" | "month" | "year" | "custom";
+export type PeriodMode = "today" | "yesterday" | "date" | "month";
 
 export interface PeriodState {
   periodMode: PeriodMode;
+  selDate: string;   // ISO yyyy-mm-dd (used when periodMode === "date")
   selMonth: number;
   selYear: number;
-  selWeek: number;
-  customFrom: string;
-  customTo: string;
 }
 
 export interface PeriodActions {
   setPeriodMode: (m: PeriodMode) => void;
+  setSelDate:  (v: string) => void;
   setSelMonth: (v: number) => void;
   setSelYear:  (v: number) => void;
-  setSelWeek:  (v: number) => void;
-  setCustomFrom: (v: string) => void;
-  setCustomTo:   (v: string) => void;
 }
 
 // ── Core attendance data ────────────────────────────────────────────────────
@@ -164,4 +160,4 @@ export interface UnderperformerData {
 
 // ── App navigation ──────────────────────────────────────────────────────────
 
-export type AppPage = "overview" | "ceo" | "employees" | "attendance" | "leave" | "reports" | "misspunch";
+export type AppPage = "ceo" | "employees" | "misspunch";
