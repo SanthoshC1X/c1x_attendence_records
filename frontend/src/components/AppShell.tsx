@@ -28,13 +28,6 @@ const navItems: NavItem[] = [
     icon: <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M17 20h5v-2a3 3 0 00-5.36-1.86M17 20H7m10 0v-2c0-.66-.13-1.28-.36-1.86M7 20H2v-2a3 3 0 015.36-1.86M7 20v-2c0-.66.13-1.28.36-1.86m0 0a5 5 0 019.28 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
   },
   {
-    key: "leave",
-    label: "Leave Analysis",
-    shortLabel: "Leave",
-    description: "Leave distribution and patterns",
-    icon: <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
-  },
-  {
     key: "misspunch",
     label: "Miss Punch",
     shortLabel: "Miss Punch",
@@ -46,14 +39,12 @@ const navItems: NavItem[] = [
 const pageTitles: Record<AppPage, string> = {
   ceo: "CEO Report",
   employees: "Employees",
-  leave: "Leave Analysis",
   misspunch: "Miss Punch",
 };
 
 const pageDescriptions: Record<AppPage, string> = {
   ceo: "Daily snapshot, leave roster, late arrivals and short days.",
   employees: "Browse people and open monthly attendance calendars.",
-  leave: "Leave mix and the employees behind each category.",
   misspunch: "Missing-punch incidents that need follow-up.",
 };
 

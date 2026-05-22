@@ -8,7 +8,6 @@ import AdminSetupPage from "./pages/AdminSetupPage";
 import AppShell from "./components/AppShell";
 import CEOReportPage from "./pages/CEOReportPage";
 import EmployeesPage from "./pages/EmployeesPage";
-import LeaveAnalysisPage from "./pages/LeaveAnalysisPage";
 import MissPunchPage from "./pages/MissPunchPage";
 
 const _backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
@@ -28,7 +27,6 @@ export default function App() {
   const [activePage, setActivePage] = useState<AppPage>("ceo");
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [liveUpdateBanner, setLiveUpdateBanner] = useState(false);
-  const [leavePageInitialType, setLeavePageInitialType] = useState<string | null>(null);
 
   const [periodMode, setPeriodMode] = useState<PeriodMode>("today");
   const [selDate, setSelDate] = useState<string>(todayIso());
@@ -44,9 +42,8 @@ export default function App() {
     return years.length > 0 ? years : [new Date().getFullYear()];
   }, [analyticsData, dashboard]);
 
-  const handleNavigate = (page: AppPage, filter?: string) => {
+  const handleNavigate = (page: AppPage) => {
     setActivePage(page);
-    setLeavePageInitialType(page === "leave" && filter ? filter : null);
   };
 
   const loadAdminDashboard = useCallback(async () => {
@@ -228,9 +225,6 @@ export default function App() {
       )}
       {activePage === "employees" && (
         <EmployeesPage dashboard={dashboard} />
-      )}
-      {activePage === "leave" && (
-        <LeaveAnalysisPage dashboard={dashboard} periodState={periodState} initialLeaveType={leavePageInitialType} />
       )}
       {activePage === "misspunch" && (
         <MissPunchPage dashboard={dashboard} periodState={periodState} />

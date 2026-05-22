@@ -43,18 +43,6 @@ export const statusStyles: Record<string, string> = {
   default:        "bg-gray-50 text-gray-500",
 };
 
-// ── Leave filter config ─────────────────────────────────────────────────────
-
-export const leaveFilterConfig = [
-  { key: "wfh",        label: "WFH",      fullLabel: "Work From Home",    chip: "border-teal-300 bg-teal-50 text-teal-700 hover:bg-teal-100",     active: "bg-teal-600 text-white border-teal-600",   dot: "bg-teal-500" },
-  { key: "cl",         label: "CL",       fullLabel: "Casual Leave",      chip: "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100",     active: "bg-blue-600 text-white border-blue-600",   dot: "bg-blue-500" },
-  { key: "sl",         label: "SL",       fullLabel: "Sick Leave",        chip: "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100",     active: "bg-rose-600 text-white border-rose-600",   dot: "bg-rose-500" },
-  { key: "pl",         label: "PL",       fullLabel: "Privilege Leave",   chip: "border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100", active: "bg-purple-600 text-white border-purple-600", dot: "bg-purple-500" },
-  { key: "comp_off",   label: "Comp Off", fullLabel: "Compensatory Off",  chip: "border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100", active: "bg-orange-500 text-white border-orange-500", dot: "bg-orange-500" },
-  { key: "half_leave", label: "Half Day", fullLabel: "Half Day Leave",    chip: "border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100", active: "bg-yellow-500 text-white border-yellow-500", dot: "bg-yellow-500" },
-  { key: "absent",     label: "Absent",   fullLabel: "Absent",            chip: "border-red-300 bg-red-50 text-red-700 hover:bg-red-100",         active: "bg-red-600 text-white border-red-600",     dot: "bg-red-500" },
-];
-
 // ── Period options ──────────────────────────────────────────────────────────
 
 export const periodOptions = [
