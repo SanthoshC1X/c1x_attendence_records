@@ -143,6 +143,19 @@ def is_weekend(date_str: str) -> bool:
     return datetime.strptime(date_str, "%Y-%m-%d").weekday() >= 5
 
 
+def build_employee_start_dates(records: dict[str, dict], leave_records: dict[str, dict[str, str]]) -> dict[str, str]:
+    """
+    Find the first date on which each employee actually appears in source data.
+    Dates before this should remain blank instead of being treated as absence/holiday.
+    """
+    start_dates: dict[str, str] = {}
+    for emp_id in set(records) | set(leave_records):
+        known_dates = set(records.get(emp_id, {}).keys()) | set(leave_records.get(emp_id, {}).keys())
+        if known_dates:
+            start_dates[emp_id] = min(known_dates)
+    return start_dates
+
+
 def parse_leave_file(file_bytes: bytes, year: int) -> tuple[dict, dict, list]:
     """
     Parse Leave/WFH Excel file.
@@ -354,6 +367,8 @@ def transform_excel(attendance_bytes: bytes, leave_bytes: Optional[bytes] = None
                 # Employee only in leave file (e.g. full WFH, never punched in)
                 employees[emp_id] = {"name": leave_emp["name"], "department": leave_emp.get("department", "Unknown")}
 
+    employee_start_dates = build_employee_start_dates(records, leave_records)
+
     # Pre-compute which dates are weekends
     weekend_flags = {d: is_weekend(d) for d in all_dates}
 
@@ -547,6 +562,7 @@ def transform_excel(attendance_bytes: bytes, leave_bytes: Optional[bytes] = None
     for row_idx, emp_id in enumerate(sorted_emps):
         row_num = data_start_row + row_idx
         emp = employees[emp_id]
+        active_start = employee_start_dates.get(emp_id)
 
         ws.cell(row=row_num, column=1, value=row_idx + 1).alignment = center_align
         ws.cell(row=row_num, column=2, value=emp_id).alignment = center_align
@@ -566,6 +582,9 @@ def transform_excel(attendance_bytes: bytes, leave_bytes: Optional[bytes] = None
             is_wkend = weekend_flags[date_str]
             rec = records.get(emp_id, {}).get(date_str)
             leave_status = leave_records.get(emp_id, {}).get(date_str)
+
+            if active_start and date_str < active_start:
+                continue
 
             has_punch = rec and (rec["in_time"] or rec["out_time"])
             day_minutes = 0
@@ -863,6 +882,7 @@ def build_dashboard_data(attendance_bytes: bytes, leave_bytes: Optional[bytes] =
                     "department": leave_emp.get("department", "Unknown"),
                 }
 
+    employee_start_dates = build_employee_start_dates(records, leave_records)
     weekend_flags = {d: is_weekend(d) for d in all_dates}
 
     # Build dashboard data
@@ -872,6 +892,7 @@ def build_dashboard_data(attendance_bytes: bytes, leave_bytes: Optional[bytes] =
     sorted_emps = sorted(employees.keys(), key=lambda eid: int(eid))
     for emp_id in sorted_emps:
         emp = employees[emp_id]
+        active_start = employee_start_dates.get(emp_id)
         weekday_minutes = 0
         weekend_minutes = 0
         weekday_days = 0
@@ -900,7 +921,13 @@ def build_dashboard_data(attendance_bytes: bytes, leave_bytes: Optional[bytes] =
             note = ""
             leave_subtype = ""
 
-            if leave_status == "WFH":
+            if active_start and date_str < active_start:
+                in_time = ""
+                out_time = ""
+                total_hhmm = ""
+                total_minutes = None
+
+            elif leave_status == "WFH":
                 record_count += 1
                 wfh_days += 1
                 weekday_minutes += 480
@@ -1275,6 +1302,7 @@ def build_dashboard_data_from_google_sheets(
                 }
 
     # ── Step 4: build daily + summary (same logic as build_dashboard_data) ───
+    employee_start_dates = build_employee_start_dates(records, leave_records)
     weekend_flags = {d: is_weekend(d) for d in all_dates}
     record_count = 0
     employees_list = []
@@ -1282,6 +1310,7 @@ def build_dashboard_data_from_google_sheets(
     sorted_emps = sorted(employees.keys(), key=lambda eid: int(eid))
     for emp_id in sorted_emps:
         emp = employees[emp_id]
+        active_start = employee_start_dates.get(emp_id)
         weekday_minutes = 0
         weekend_minutes = 0
         weekday_days = 0
@@ -1309,7 +1338,13 @@ def build_dashboard_data_from_google_sheets(
             note = ""
             leave_subtype = ""
 
-            if leave_status == "WFH":
+            if active_start and date_str < active_start:
+                in_time = ""
+                out_time = ""
+                total_hhmm = ""
+                total_minutes = None
+
+            elif leave_status == "WFH":
                 record_count += 1
                 wfh_days += 1
                 weekday_minutes += 480
