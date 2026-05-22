@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { EmployeeDashboard, DailyEntry } from "../types";
 
 interface Props {
@@ -61,14 +61,33 @@ function buildMonthGrid(year: number, month: number): CellMeta[] {
   return cells;
 }
 
-function formatHours(entry: DailyEntry): string | null {
-  if (!entry.total_hhmm) return null;
+function parseTotalMinutes(entry: DailyEntry | undefined): number {
+  if (!entry) return 0;
+  if (typeof entry.total_minutes === "number" && entry.total_minutes > 0) {
+    return entry.total_minutes;
+  }
+  if (!entry.total_hhmm) return 0;
   const [hStr, mStr] = entry.total_hhmm.split(":");
   const h = parseInt(hStr, 10);
   const m = parseInt(mStr, 10);
-  if (Number.isNaN(h)) return null;
-  if (h === 0 && (Number.isNaN(m) || m === 0)) return null;
-  if (!m || m === 0) return `${h}h`;
+  if (Number.isNaN(h)) return 0;
+  return h * 60 + (Number.isNaN(m) ? 0 : m);
+}
+
+function formatHours(entry: DailyEntry): string | null {
+  const total = parseTotalMinutes(entry);
+  if (total <= 0) return null;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${pad(m)}m`;
+}
+
+function formatMinutes(total: number): string {
+  if (total <= 0) return "";
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (m === 0) return `${h}h`;
   return `${h}h ${pad(m)}m`;
 }
 
@@ -171,6 +190,30 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
 
   const grid = useMemo(() => buildMonthGrid(view.year, view.month), [view]);
 
+  const weeks = useMemo(() => {
+    const out: CellMeta[][] = [];
+    for (let i = 0; i < grid.length; i += 7) out.push(grid.slice(i, i + 7));
+    return out;
+  }, [grid]);
+
+  // Weekly totals: sum logged minutes only for cells that belong to the active month.
+  // Overflow dates from the previous/next month are ignored entirely.
+  const weeklyTotals = useMemo(() => {
+    return weeks.map((week) => {
+      let total = 0;
+      for (const cell of week) {
+        if (!cell.inMonth) continue;
+        const entry = entriesByDate.get(cell.iso);
+        if (!entry) continue;
+        const c = classify(entry, cell);
+        if (c.key === "present" || c.key === "wfh") {
+          total += parseTotalMinutes(entry);
+        }
+      }
+      return total;
+    });
+  }, [weeks, entriesByDate]);
+
   // Per-bucket totals for the displayed month, computed via the same priority classifier.
   const totals = useMemo(() => {
     const t = { absent: 0, wfh: 0, cl: 0, sl: 0, pl: 0 };
@@ -272,42 +315,62 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
           </div>
 
           {/* Day-of-week header */}
-          <div className="mt-2.5 grid grid-cols-7 border-b border-slate-100 pb-1.5">
+          <div className="mt-2.5 grid grid-cols-[repeat(7,minmax(0,1fr))_72px] gap-x-0 border-b border-slate-100 pb-1.5 sm:grid-cols-[repeat(7,minmax(0,1fr))_84px]">
             {WEEKDAY_LABELS.map((lbl, i) => (
               <div key={lbl} className={`text-[10.5px] font-medium ${i === 0 || i === 6 ? "text-rose-400" : "text-slate-500"}`}>{lbl}</div>
             ))}
+            <div className="pl-2 text-right text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400 sm:text-left">Total</div>
           </div>
 
-          {/* Day grid */}
-          <div className="mt-1.5 grid grid-cols-7 gap-px overflow-hidden rounded-xl bg-slate-100/70">
-            {grid.map((cell, idx) => {
-              const entry = entriesByDate.get(cell.iso);
-              const c = classify(entry, cell);
-              const tone = TONE_STYLES[c.key];
-              const showBadge = cell.inMonth && c.label !== "";
-
+          {/* Day grid — 7 day cells + a slim weekly-total cell per row */}
+          <div className="mt-1.5 grid grid-cols-[repeat(7,minmax(0,1fr))_72px] gap-px overflow-hidden rounded-xl bg-slate-100/70 sm:grid-cols-[repeat(7,minmax(0,1fr))_84px]">
+            {weeks.map((week, wi) => {
+              const weekMinutes = weeklyTotals[wi];
+              const weekHasMonthDays = week.some((c) => c.inMonth);
               return (
-                <div
-                  key={`${cell.iso}-${idx}`}
-                  className={`relative flex h-[60px] flex-col justify-between p-1.5 sm:h-[68px] ${cell.inMonth ? "bg-white" : "bg-slate-50/50"}`}
-                >
-                  <span
-                    className={`text-[10.5px] font-medium tabular-nums ${
-                      cell.inMonth
-                        ? cell.isWeekend ? "text-rose-400" : "text-slate-700"
-                        : "text-slate-300"
-                    }`}
-                  >
-                    {cell.date.getDate()}
-                  </span>
+                <Fragment key={`week-${wi}`}>
+                  {week.map((cell, idx) => {
+                    const entry = entriesByDate.get(cell.iso);
+                    const c = classify(entry, cell);
+                    const tone = TONE_STYLES[c.key];
+                    const showBadge = cell.inMonth && c.label !== "";
 
-                  {showBadge && (
-                    <div className={`inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium leading-none ${tone.bg} ${tone.text}`}>
-                      {c.key !== "present" && <span className={`h-1 w-1 shrink-0 rounded-full ${tone.dot}`} />}
-                      <span className="truncate">{c.label}</span>
+                    return (
+                      <div
+                        key={`${cell.iso}-${idx}`}
+                        className={`relative flex h-[60px] flex-col justify-between p-1.5 sm:h-[68px] ${cell.inMonth ? "bg-white" : "bg-slate-50/50"}`}
+                      >
+                        <span
+                          className={`text-[10.5px] font-medium tabular-nums ${
+                            cell.inMonth
+                              ? cell.isWeekend ? "text-rose-400" : "text-slate-700"
+                              : "text-slate-300"
+                          }`}
+                        >
+                          {cell.date.getDate()}
+                        </span>
+
+                        {showBadge && (
+                          <div className={`inline-flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium leading-none ${tone.bg} ${tone.text}`}>
+                            {c.key !== "present" && <span className={`h-1 w-1 shrink-0 rounded-full ${tone.dot}`} />}
+                            <span className="truncate">{c.label}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* Weekly total cell — only when the row contains in-month dates */}
+                  {weekHasMonthDays ? (
+                    <div className="flex h-[60px] flex-col items-end justify-center gap-0.5 border-l border-slate-100 bg-slate-50/60 px-2 sm:h-[68px]">
+                      <span className="text-[9px] font-medium uppercase tracking-[0.14em] text-slate-400">Week</span>
+                      <span className={`text-[12px] font-semibold tabular-nums ${weekMinutes > 0 ? "text-slate-800" : "text-slate-300"}`}>
+                        {weekMinutes > 0 ? formatMinutes(weekMinutes) : "—"}
+                      </span>
                     </div>
+                  ) : (
+                    <div className="h-[60px] bg-slate-50/30 sm:h-[68px]" aria-hidden="true" />
                   )}
-                </div>
+                </Fragment>
               );
             })}
           </div>
