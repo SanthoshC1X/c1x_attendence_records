@@ -1,4 +1,4 @@
-import type { DailyEntry, WeekDay } from "./types";
+import type { DailyEntry, WeekDay, PeriodState } from "./types";
 
 // ── Date formatting ─────────────────────────────────────────────────────────
 
@@ -113,6 +113,48 @@ export function getMonthIsoWeeks(year: number, month: number): MonthWeek[] {
   }
 
   return weeks;
+}
+
+// ── Period filtering ────────────────────────────────────────────────────────
+
+const MONTH_NAMES_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+export function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function yesterdayIso(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function dateInPeriod(dateStr: string, period: PeriodState): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return false;
+
+  switch (period.periodMode) {
+    case "today":     return dateStr === todayIso();
+    case "yesterday": return dateStr === yesterdayIso();
+    case "date":      return !!period.selDate && dateStr === period.selDate;
+    case "month":     return d.getFullYear() === period.selYear && d.getMonth() === period.selMonth;
+  }
+}
+
+function fmtFullDate(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+export function describePeriod(period: PeriodState): string {
+  switch (period.periodMode) {
+    case "today":     return `Today · ${fmtFullDate(todayIso())}`;
+    case "yesterday": return `Yesterday · ${fmtFullDate(yesterdayIso())}`;
+    case "date":      return period.selDate ? fmtFullDate(period.selDate) : "Pick a date";
+    case "month":     return `${MONTH_NAMES_FULL[period.selMonth]} ${period.selYear}`;
+  }
 }
 
 // ── Avatar color ─────────────────────────────────────────────────────────────

@@ -2,15 +2,13 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import axios from "axios";
 import type { AppPage, AnalyticsData, DashboardData, PeriodMode, PeriodState, PeriodActions } from "./types";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { todayIso } from "./utils";
 import LoginPage from "./pages/LoginPage";
 import AdminSetupPage from "./pages/AdminSetupPage";
 import AppShell from "./components/AppShell";
-import OverviewPage from "./pages/OverviewPage";
 import CEOReportPage from "./pages/CEOReportPage";
 import EmployeesPage from "./pages/EmployeesPage";
-import AttendancePage from "./pages/AttendancePage";
 import LeaveAnalysisPage from "./pages/LeaveAnalysisPage";
-import ReportsPage from "./pages/ReportsPage";
 import MissPunchPage from "./pages/MissPunchPage";
 
 const _backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
@@ -27,27 +25,18 @@ export default function App() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
 
   const [error, setError] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<AppPage>("overview");
-  const [activePeriod, setActivePeriod] = useState("all");
+  const [activePage, setActivePage] = useState<AppPage>("ceo");
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [liveUpdateBanner, setLiveUpdateBanner] = useState(false);
   const [leavePageInitialType, setLeavePageInitialType] = useState<string | null>(null);
 
-  const [overviewSearch, setOverviewSearch] = useState("");
-  const [overviewLeaveFilter, setOverviewLeaveFilter] = useState<"all" | "wfh" | "cl" | "sl" | "pl" | "comp_off" | "half_leave" | "absent">("all");
-  const [overviewSortKey, setOverviewSortKey] = useState<"name" | "absent" | "leave" | "wfh" | "hours">("name");
-  const [overviewMinHours, setOverviewMinHours] = useState(0);
-  const [overviewHoursDir, setOverviewHoursDir] = useState<"gte" | "lte">("gte");
-
-  const [periodMode, setPeriodMode] = useState<PeriodMode>("yesterday");
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("today");
+  const [selDate, setSelDate] = useState<string>(todayIso());
   const [selMonth, setSelMonth] = useState(new Date().getMonth());
   const [selYear, setSelYear] = useState(new Date().getFullYear());
-  const [selWeek, setSelWeek] = useState(() => Math.ceil(new Date().getDate() / 7));
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
 
-  const periodState: PeriodState = { periodMode, selMonth, selYear, selWeek, customFrom, customTo };
-  const periodActions: PeriodActions = { setPeriodMode, setSelMonth, setSelYear, setSelWeek, setCustomFrom, setCustomTo };
+  const periodState: PeriodState = { periodMode, selDate, selMonth, selYear };
+  const periodActions: PeriodActions = { setPeriodMode, setSelDate, setSelMonth, setSelYear };
 
   const availableYears = useMemo(() => {
     const employees = analyticsData?.filtered_data?.employees ?? dashboard?.employees ?? [];
@@ -67,8 +56,7 @@ export default function App() {
       const res = await axios.get("/api/cached-dashboard");
       setDashboard(res.data.dashboard as DashboardData);
       setAnalyticsData(res.data.analytics as AnalyticsData);
-      setActivePage("overview");
-      setActivePeriod("all");
+      setActivePage("ceo");
       setStage("dashboard");
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response) {
@@ -116,16 +104,6 @@ export default function App() {
     await loadAdminDashboard();
   }, [loadAdminDashboard]);
 
-  const handlePeriodChange = async (period: string) => {
-    setActivePeriod(period);
-    setAnalyticsLoading(true);
-    try {
-      await refreshFromCache();
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  };
-
   const handleDownload = async () => {
     try {
       const res = await axios.get("/api/admin/export", { responseType: "blob" });
@@ -147,14 +125,13 @@ export default function App() {
     setDashboard(null);
     setAnalyticsData(null);
     setError(null);
-    setActivePage("overview");
-    setActivePeriod("all");
+    setActivePage("ceo");
   };
 
   const handleUploadNew = () => {
-    setActivePage("overview");
-    setActivePeriod("all");
-    loadAdminDashboard();
+    setActivePage("ceo");
+    setAnalyticsLoading(true);
+    refreshFromCache().finally(() => setAnalyticsLoading(false));
   };
 
   if (stage === "login") {
@@ -213,14 +190,12 @@ export default function App() {
   return (
     <AppShell
       activePage={activePage}
-      activePeriod={activePeriod}
       dashboard={dashboard}
       liveStatus={wsStatus}
       periodState={periodState}
       periodActions={periodActions}
       availableYears={availableYears}
       onNavigate={(page) => handleNavigate(page)}
-      onPeriodChange={handlePeriodChange}
       onUploadNew={handleUploadNew}
       onLogout={handleLogout}
       onExport={handleDownload}
@@ -248,42 +223,17 @@ export default function App() {
         </div>
       )}
 
-      {activePage === "overview" && (
-        <OverviewPage
-          dashboard={dashboard}
-          analyticsData={analyticsData}
-          onNavigate={handleNavigate}
-          periodState={periodState}
-          periodActions={periodActions}
-          search={overviewSearch}
-          onSearchChange={setOverviewSearch}
-          leaveFilter={overviewLeaveFilter}
-          onLeaveFilterChange={setOverviewLeaveFilter}
-          sortKey={overviewSortKey}
-          onSortKeyChange={setOverviewSortKey}
-          minHours={overviewMinHours}
-          onMinHoursChange={setOverviewMinHours}
-          hoursDir={overviewHoursDir}
-          onHoursDirChange={setOverviewHoursDir}
-        />
-      )}
       {activePage === "ceo" && (
-        <CEOReportPage dashboard={dashboard} />
+        <CEOReportPage dashboard={dashboard} periodState={periodState} />
       )}
       {activePage === "employees" && (
-        <EmployeesPage dashboard={dashboard} analyticsData={analyticsData} />
-      )}
-      {activePage === "attendance" && (
-        <AttendancePage dashboard={dashboard} analyticsData={analyticsData} activePeriod={activePeriod} onPeriodChange={handlePeriodChange} />
+        <EmployeesPage dashboard={dashboard} />
       )}
       {activePage === "leave" && (
-        <LeaveAnalysisPage analyticsData={analyticsData} initialLeaveType={leavePageInitialType} />
-      )}
-      {activePage === "reports" && (
-        <ReportsPage activePeriod={activePeriod} />
+        <LeaveAnalysisPage dashboard={dashboard} periodState={periodState} initialLeaveType={leavePageInitialType} />
       )}
       {activePage === "misspunch" && (
-        <MissPunchPage dashboard={dashboard} analyticsData={analyticsData} periodState={periodState} periodActions={periodActions} />
+        <MissPunchPage dashboard={dashboard} periodState={periodState} />
       )}
     </AppShell>
   );
