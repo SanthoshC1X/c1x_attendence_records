@@ -101,8 +101,13 @@ type ClassKey =
  *   1. WFH  →  2. CL  →  3. SL  →  4. PL  →  5. Other leave types  →  6. Absent (fallback)
  * Present (with real hours) is its own bucket; weekends/holidays/future stay muted.
  */
-function classify(entry: DailyEntry | undefined, cell: CellMeta): { key: ClassKey; label: string; weight: number } {
+function classify(
+  entry: DailyEntry | undefined,
+  cell: CellMeta,
+  latestKnownIso: string | null,
+): { key: ClassKey; label: string; weight: number } {
   if (!entry) {
+    if (latestKnownIso && cell.iso > latestKnownIso) return { key: "future", label: "", weight: 0 };
     if (cell.isFuture) return { key: "future", label: "", weight: 0 };
     if (cell.isWeekend) return { key: "weekend", label: "", weight: 0 };
     // No record for a past working day -> Absent fallback.
@@ -111,6 +116,8 @@ function classify(entry: DailyEntry | undefined, cell: CellMeta): { key: ClassKe
 
   const subtype = (entry.leave_subtype || "").toLowerCase();
   const st = entry.status_type;
+
+  if (!st) return { key: "future", label: "", weight: 0 };
 
   if (st === "wfh")             return { key: "wfh", label: "WFH",       weight: 1 };
   if (subtype === "half_wfh")   return { key: "wfh", label: "Half WFH",  weight: 0.5 };
@@ -188,6 +195,12 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
     return map;
   }, [employee]);
 
+  const latestKnownIso = useMemo(() => {
+    const days = employee?.daily;
+    if (!days || days.length === 0) return null;
+    return days[days.length - 1].date;
+  }, [employee]);
+
   const grid = useMemo(() => buildMonthGrid(view.year, view.month), [view]);
 
   const weeks = useMemo(() => {
@@ -201,18 +214,18 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
   const weeklyTotals = useMemo(() => {
     return weeks.map((week) => {
       let total = 0;
-      for (const cell of week) {
-        if (!cell.inMonth) continue;
-        const entry = entriesByDate.get(cell.iso);
-        if (!entry) continue;
-        const c = classify(entry, cell);
-        if (c.key === "present" || c.key === "wfh") {
-          total += parseTotalMinutes(entry);
+        for (const cell of week) {
+          if (!cell.inMonth) continue;
+          const entry = entriesByDate.get(cell.iso);
+          if (!entry) continue;
+          const c = classify(entry, cell, latestKnownIso);
+          if (c.key === "present" || c.key === "wfh") {
+            total += parseTotalMinutes(entry);
+          }
         }
-      }
-      return total;
-    });
-  }, [weeks, entriesByDate]);
+        return total;
+      });
+  }, [weeks, entriesByDate, latestKnownIso]);
 
   // Per-bucket totals for the displayed month, computed via the same priority classifier.
   const totals = useMemo(() => {
@@ -220,7 +233,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
     for (const cell of grid) {
       if (!cell.inMonth) continue;
       const entry = entriesByDate.get(cell.iso);
-      const c = classify(entry, cell);
+      const c = classify(entry, cell, latestKnownIso);
       if (c.key === "wfh") t.wfh += c.weight;
       else if (c.key === "cl") t.cl += c.weight;
       else if (c.key === "sl") t.sl += c.weight;
@@ -228,7 +241,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
       else if (c.key === "absent") t.absent += c.weight;
     }
     return t;
-  }, [grid, entriesByDate]);
+  }, [grid, entriesByDate, latestKnownIso]);
 
   if (!employee) return null;
 
@@ -331,9 +344,10 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
                 <Fragment key={`week-${wi}`}>
                   {week.map((cell, idx) => {
                     const entry = entriesByDate.get(cell.iso);
-                    const c = classify(entry, cell);
+                    const c = classify(entry, cell, latestKnownIso);
                     const tone = TONE_STYLES[c.key];
                     const showBadge = cell.inMonth && c.label !== "";
+                    const isBeyondLoadedData = Boolean(latestKnownIso && cell.iso > latestKnownIso);
 
                     return (
                       <div
@@ -343,7 +357,9 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
                         <span
                           className={`text-[10.5px] font-medium tabular-nums ${
                             cell.inMonth
-                              ? cell.isWeekend ? "text-rose-400" : "text-slate-700"
+                              ? isBeyondLoadedData
+                                ? "text-slate-300"
+                                : cell.isWeekend ? "text-rose-400" : "text-slate-700"
                               : "text-slate-300"
                           }`}
                         >
