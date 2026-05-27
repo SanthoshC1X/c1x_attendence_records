@@ -3,6 +3,7 @@ import type { DashboardData, EmployeeDashboard, DailyEntry, PeriodState } from "
 import { dateInPeriod, describePeriod, getMonthIsoWeeks } from "../utils";
 import EmployeeListModal from "../components/EmployeeListModal";
 import EmployeeMonthlyCalendar from "../components/EmployeeMonthlyCalendar";
+import WeeklyUnderHoursSection from "../components/WeeklyUnderHoursSection";
 
 interface Props {
   dashboard: DashboardData;
@@ -410,72 +411,7 @@ export default function CEOReportPage({ dashboard, periodState }: Props) {
             )}
           </Section>
 
-          <Section
-            title="Weekly under 45 hours"
-            subtitle="Monthly cards split by ISO week slices. Cross-month weeks are prorated to the visible tracked weekdays in each month."
-            badge={<span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-800 ring-1 ring-rose-200">{totalWeeklyFlags}</span>}
-          >
-            {weeklyUnderHoursByMonth.every((month) => month.flaggedCount === 0) ? (
-              <div className="px-5 py-8 text-center text-[12.5px] text-slate-500">Nobody is below the weekly target in the available month slices.</div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
-                {weeklyUnderHoursByMonth.map((month) => (
-                  <div key={month.key} className="overflow-hidden rounded-[20px] border border-slate-200/70 bg-slate-50/60">
-                    <div className="flex items-start justify-between border-b border-slate-200/70 bg-white/85 px-4 py-3">
-                      <div>
-                        <h4 className="text-[15px] font-semibold tracking-tight text-slate-900">{month.title}</h4>
-                        <p className="mt-0.5 text-[11.5px] text-slate-500">{month.throughLabel}</p>
-                      </div>
-                      <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200">
-                        {month.flaggedCount} flags
-                      </span>
-                    </div>
-
-                    <div className="divide-y divide-slate-200/70">
-                      {month.weeks.map((week) => (
-                        <div key={week.key} className="bg-white/70">
-                          <div className="flex items-start justify-between px-4 py-3">
-                            <div>
-                              <p className="text-[12.5px] font-semibold text-slate-900">{week.weekLabel}</p>
-                              <p className="mt-0.5 text-[11px] text-slate-500">
-                                {week.sliceLabel} · target {fmtHours(week.expectedMinutes)} · {week.throughLabel}
-                              </p>
-                            </div>
-                            <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1 ${week.employees.length > 0 ? "bg-rose-50 text-rose-700 ring-rose-200" : "bg-emerald-50 text-emerald-700 ring-emerald-200"}`}>
-                              {week.employees.length > 0 ? `${week.employees.length} below target` : "Met target"}
-                            </span>
-                          </div>
-
-                          {week.employees.length === 0 ? (
-                            <div className="px-4 pb-4 text-[11.5px] text-slate-500">Everyone in this week slice met the prorated target.</div>
-                          ) : (
-                            <ul className="divide-y divide-slate-100">
-                              {week.employees.map((item) => (
-                                <li key={`${week.key}-${item.emp.emp_id}`} className="flex items-center justify-between px-4 py-3">
-                                  <div className="min-w-0">
-                                    <p className="truncate text-[13px] font-medium text-slate-900">{item.emp.name}</p>
-                                    <p className="truncate text-[11.5px] text-slate-500">
-                                      {item.emp.department || "—"} · ID {item.emp.emp_id} · tracked {item.trackedWeekdays} weekday{item.trackedWeekdays === 1 ? "" : "s"}
-                                    </p>
-                                  </div>
-                                  <div className="ml-3 shrink-0 text-right">
-                                    <p className="text-[13px] font-semibold text-rose-700 tabular-nums">
-                                      {fmtHours(item.actualMinutes)} / {fmtHours(item.expectedMinutes)}
-                                    </p>
-                                    <p className="text-[11px] text-slate-500">short by {fmtHours(item.deficitMinutes)}</p>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
+          <WeeklyUnderHoursSection months={weeklyUnderHoursByMonth} totalFlags={totalWeeklyFlags} />
         </>
       )}
 
