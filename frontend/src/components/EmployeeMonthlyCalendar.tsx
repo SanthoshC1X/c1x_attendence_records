@@ -83,6 +83,16 @@ function formatHours(entry: DailyEntry): string | null {
   return `${h}h ${pad(m)}m`;
 }
 
+function isMissPunch(entry: DailyEntry): boolean {
+  // A single punch (or two identical punches) → in == out, no real duration.
+  return Boolean(
+    entry.in_time &&
+    entry.out_time &&
+    entry.in_time === entry.out_time &&
+    entry.in_time !== "00:00:00",
+  );
+}
+
 function formatMinutes(total: number): string {
   if (total <= 0) return "";
   const h = Math.floor(total / 60);
@@ -94,7 +104,8 @@ function formatMinutes(total: number): string {
 type ClassKey =
   | "wfh" | "cl" | "sl" | "pl"
   | "comp" | "lwd" | "leave-other" | "holiday"
-  | "present" | "absent" | "weekend" | "future";
+  | "present" | "weekend_worked" | "misspunch"
+  | "absent" | "weekend" | "future";
 
 /**
  * Priority-ordered classifier:
@@ -134,9 +145,14 @@ function classify(
   if (st === "holiday")         return { key: "holiday", label: "Holiday", weight: 0 };
 
   if (st === "present" || st === "weekend_worked") {
+    // Single/identical punch → flag as Miss Punch (applies to weekdays and weekends).
+    if (isMissPunch(entry)) return { key: "misspunch", label: "Miss Punch", weight: 0 };
     const hrs = formatHours(entry);
-    if (hrs) return { key: "present", label: hrs, weight: 0 };
-    // Marked present but no real hours → treat as Absent per spec.
+    if (hrs) {
+      if (st === "weekend_worked") return { key: "weekend_worked", label: hrs, weight: 0 };
+      return { key: "present", label: hrs, weight: 0 };
+    }
+    // Marked present but no real hours and not a clean miss-punch → treat as Absent per spec.
     return { key: "absent", label: "Absent", weight: 1 };
   }
 
@@ -154,6 +170,8 @@ const TONE_STYLES: Record<ClassKey, { bg: string; text: string; dot: string }> =
   "leave-other": { bg: "bg-indigo-50/70",   text: "text-indigo-700",   dot: "bg-indigo-400" },
   holiday:       { bg: "bg-slate-50",       text: "text-slate-400",    dot: "bg-slate-300" },
   present:       { bg: "bg-emerald-50/60",  text: "text-emerald-700",  dot: "bg-emerald-400" },
+  weekend_worked:{ bg: "bg-amber-50/80",    text: "text-amber-700",    dot: "bg-amber-400" },
+  misspunch:     { bg: "bg-yellow-100/80",  text: "text-yellow-800",   dot: "bg-yellow-500" },
   absent:        { bg: "bg-red-50/70",      text: "text-red-600",      dot: "bg-red-400" },
   weekend:       { bg: "bg-slate-50/40",    text: "text-slate-300",    dot: "bg-slate-200" },
   future:        { bg: "bg-white",          text: "text-slate-300",    dot: "bg-slate-200" },
@@ -219,7 +237,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
           const entry = entriesByDate.get(cell.iso);
           if (!entry) continue;
           const c = classify(entry, cell, latestKnownIso);
-          if (c.key === "present" || c.key === "wfh") {
+          if (c.key === "present" || c.key === "wfh" || c.key === "weekend_worked") {
             total += parseTotalMinutes(entry);
           }
         }
@@ -229,7 +247,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
 
   // Per-bucket totals for the displayed month, computed via the same priority classifier.
   const totals = useMemo(() => {
-    const t = { absent: 0, wfh: 0, cl: 0, sl: 0, pl: 0 };
+    const t = { absent: 0, wfh: 0, cl: 0, sl: 0, pl: 0, ww: 0, mp: 0 };
     for (const cell of grid) {
       if (!cell.inMonth) continue;
       const entry = entriesByDate.get(cell.iso);
@@ -239,6 +257,8 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
       else if (c.key === "sl") t.sl += c.weight;
       else if (c.key === "pl") t.pl += c.weight;
       else if (c.key === "absent") t.absent += c.weight;
+      else if (c.key === "weekend_worked") t.ww += 1;
+      else if (c.key === "misspunch") t.mp += 1;
     }
     return t;
   }, [grid, entriesByDate, latestKnownIso]);
@@ -256,6 +276,8 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
     { label: "CL",     value: totals.cl,     dot: "bg-blue-400" },
     { label: "SL",     value: totals.sl,     dot: "bg-rose-400" },
     { label: "PL",     value: totals.pl,     dot: "bg-violet-400" },
+    { label: "Wknd",   value: totals.ww,     dot: "bg-amber-400" },
+    { label: "Miss Punch", value: totals.mp, dot: "bg-yellow-500" },
   ];
 
   return (
@@ -394,11 +416,13 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
           {/* Legend */}
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-slate-500">
             <LegendDot color="bg-emerald-400" label="Present" />
+            <LegendDot color="bg-amber-400" label="Weekend Worked" />
             <LegendDot color="bg-teal-400" label="WFH" />
             <LegendDot color="bg-blue-400" label="Casual Leave" />
             <LegendDot color="bg-rose-400" label="Sick Leave" />
             <LegendDot color="bg-violet-400" label="Paid Leave" />
             <LegendDot color="bg-orange-400" label="Comp Off" />
+            <LegendDot color="bg-yellow-500" label="Miss Punch" />
             <LegendDot color="bg-red-400" label="Absent" />
           </div>
         </div>
