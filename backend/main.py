@@ -802,7 +802,11 @@ async def export_dashboard_excel():
         employees_with_data = []
         employees_no_data = []
         for emp in employees:
-            has_data = any(day.get("date") in month_dates_set for day in emp.get("daily", []))
+            emp_daily_map = {day["date"]: day for day in emp.get("daily", [])}
+            has_data = any(
+                emp_daily_map.get(d) and emp_daily_map[d].get("status_type")
+                for d in month_dates_set
+            )
             (employees_with_data if has_data else employees_no_data).append(emp)
 
         for idx, emp in enumerate(employees_with_data, 1):
@@ -1118,7 +1122,7 @@ async def export_employee_summary_excel():
                 if not day:
                     continue
                 status_type = day.get("status_type", "")
-                if status_type != "absent":
+                if status_type not in ("", "absent"):
                     has_real_data = True
                 if status_type in ("present", "weekend_worked"):
                     week_minutes[wl] += day.get("total_minutes") or 0
@@ -1206,6 +1210,178 @@ async def export_employee_summary_excel():
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": 'attachment; filename="Employee_Summary_Report.xlsx"',
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
+    )
+
+
+@app.get("/api/admin/export-leave-summary")
+async def export_leave_summary_excel():
+    """Export one Excel workbook with a per-employee, month-by-month leave summary:
+    counts of WFH / SL / CL / PL / Comp Off / Half Day and a Total Leaves column.
+    Employees/months with no real activity (missing or all-Absent) are excluded and
+    listed under a 'Missing Data' section instead."""
+    import io
+    from datetime import datetime as _dt
+    from collections import OrderedDict
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    dashboard_data = _rebuild_export_dashboard_data()
+    employees = dashboard_data.get("employees", [])
+    dates = dashboard_data.get("dates_processed", [])
+
+    date_objs = [_dt.strptime(d, "%Y-%m-%d") for d in dates]
+    dates_by_month: OrderedDict[str, list[str]] = OrderedDict()
+    for d_obj, date_str in zip(date_objs, dates):
+        dates_by_month.setdefault(d_obj.strftime("%Y-%m"), []).append(date_str)
+
+    leave_cols = ["WFH", "SL", "CL", "PL", "Comp Off", "Half Day"]
+
+    header_fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True, size=10)
+    name_font = Font(bold=True, size=13)
+    bold_font = Font(bold=True, size=10)
+    center = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style="thin", color="D1D5DB"),
+        right=Side(style="thin", color="D1D5DB"),
+        top=Side(style="thin", color="D1D5DB"),
+        bottom=Side(style="thin", color="D1D5DB"),
+    )
+
+    headers = ["Month", "Employee ID", "Employee Name"] + leave_cols + ["Total Leaves"]
+    total_cols = len(headers)
+
+    def style_header_row(ws, row: int, values: list[str]) -> None:
+        for col, value in enumerate(values, 1):
+            cell = ws.cell(row=row, column=col, value=value)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = thin_border
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Leave Summary"
+
+    row_cursor = 1
+    missing_entries: list[tuple[str, str, str]] = []
+
+    for emp in employees:
+        daily_map = {day["date"]: day for day in emp.get("daily", []) if day.get("date")}
+        month_rows: list[tuple[str, dict]] = []
+
+        for month_key, month_dates in dates_by_month.items():
+            month_label = _dt.strptime(month_key, "%Y-%m").strftime("%B %Y")
+
+            has_real_data = False
+            counts = {"WFH": 0, "SL": 0, "CL": 0, "PL": 0, "Comp Off": 0, "Half Day": 0}
+            for date_str in month_dates:
+                day = daily_map.get(date_str)
+                if not day:
+                    continue
+                status_type = day.get("status_type", "")
+                if status_type not in ("", "absent"):
+                    has_real_data = True
+
+                leave_subtype = day.get("leave_subtype", "")
+                if status_type == "wfh":
+                    counts["WFH"] += 1
+                elif status_type == "comp_off":
+                    counts["Comp Off"] += 1
+                elif status_type == "half_leave":
+                    counts["Half Day"] += 1
+                    if leave_subtype == "half_sl":
+                        counts["SL"] += 0.5
+                    elif leave_subtype == "half_cl":
+                        counts["CL"] += 0.5
+                    elif leave_subtype == "half_pl":
+                        counts["PL"] += 0.5
+                    elif leave_subtype == "half_wfh":
+                        counts["WFH"] += 0.5
+                    elif leave_subtype == "half_comp":
+                        counts["Comp Off"] += 0.5
+                elif status_type == "leave":
+                    if leave_subtype == "sl":
+                        counts["SL"] += 1
+                    elif leave_subtype == "cl":
+                        counts["CL"] += 1
+                    elif leave_subtype == "pl":
+                        counts["PL"] += 1
+
+            if not has_real_data:
+                missing_entries.append((emp["emp_id"], emp["name"], month_label))
+                continue
+
+            month_rows.append((month_label, counts))
+
+        if not month_rows:
+            continue
+
+        ws.cell(row=row_cursor, column=1, value=emp["name"])
+        ws.cell(row=row_cursor, column=1).font = name_font
+        ws.merge_cells(start_row=row_cursor, start_column=1, end_row=row_cursor, end_column=total_cols)
+        row_cursor += 1
+
+        style_header_row(ws, row_cursor, headers)
+        row_cursor += 1
+
+        for month_label, counts in month_rows:
+            ws.cell(row=row_cursor, column=1, value=month_label).border = thin_border
+            emp_id_cell = ws.cell(row=row_cursor, column=2, value=emp["emp_id"])
+            emp_id_cell.alignment = center
+            emp_id_cell.border = thin_border
+            ws.cell(row=row_cursor, column=3, value=emp["name"]).border = thin_border
+
+            for offset, col_name in enumerate(leave_cols):
+                cell = ws.cell(row=row_cursor, column=4 + offset, value=counts[col_name])
+                cell.alignment = center
+                cell.border = thin_border
+
+            total_col = 4 + len(leave_cols)
+            total_cell = ws.cell(row=row_cursor, column=total_col, value=sum(counts.values()))
+            total_cell.alignment = center
+            total_cell.border = thin_border
+            total_cell.font = bold_font
+
+            row_cursor += 1
+
+        row_cursor += 2
+
+    if missing_entries:
+        heading_cell = ws.cell(row=row_cursor, column=1, value="Missing Data")
+        heading_cell.font = Font(bold=True, size=13, color="B91C1C")
+        ws.merge_cells(start_row=row_cursor, start_column=1, end_row=row_cursor, end_column=total_cols)
+        row_cursor += 1
+
+        style_header_row(ws, row_cursor, ["Employee ID", "Employee Name", "Month"])
+        row_cursor += 1
+
+        for emp_id, name, month_label in missing_entries:
+            id_cell = ws.cell(row=row_cursor, column=1, value=emp_id)
+            id_cell.alignment = center
+            id_cell.border = thin_border
+            ws.cell(row=row_cursor, column=2, value=name).border = thin_border
+            ws.cell(row=row_cursor, column=3, value=month_label).border = thin_border
+            row_cursor += 1
+
+    ws.column_dimensions["A"].width = 18
+    ws.column_dimensions["B"].width = 14
+    ws.column_dimensions["C"].width = 26
+    for offset in range(len(leave_cols)):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(4 + offset)].width = 11
+    ws.column_dimensions[openpyxl.utils.get_column_letter(4 + len(leave_cols))].width = 13
+
+    output = io.BytesIO()
+    wb.save(output)
+    excel_bytes = output.getvalue()
+
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="Leave_Summary_Report.xlsx"',
             "Access-Control-Expose-Headers": "Content-Disposition",
         },
     )
