@@ -179,6 +179,8 @@ const TONE_STYLES: Record<ClassKey, { bg: string; text: string; dot: string }> =
 
 export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
   const [visible, setVisible] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
 
   const initialMonth = useMemo(() => {
     const lastDate = employee?.daily?.[employee.daily.length - 1]?.date;
@@ -195,6 +197,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
   useEffect(() => {
     if (employee) {
       setView(initialMonth);
+      setPickerOpen(false);
       requestAnimationFrame(() => setVisible(true));
     } else {
       setVisible(false);
@@ -202,10 +205,14 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
   }, [employee, initialMonth]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (pickerOpen) setPickerOpen(false);
+      else onClose();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [onClose, pickerOpen]);
 
   const entriesByDate = useMemo(() => {
     const map = new Map<string, DailyEntry>();
@@ -329,24 +336,90 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
 
         {/* Calendar card */}
         <div className="mt-4 rounded-[20px] border border-white/80 bg-white/90 p-3 shadow-[0_24px_60px_-30px_rgba(76,29,149,0.22)] backdrop-blur sm:p-4">
-          {/* Calendar header */}
-          <div className="flex items-center justify-between">
-            <p className="text-[20px] font-semibold uppercase tracking-tight text-slate-900 sm:text-[22px]">
-              {MONTH_NAMES[view.month]}
-            </p>
-            <div className="flex items-center gap-1.5">
-              <button onClick={goPrev} aria-label="Previous month" className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900">
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <p className="min-w-[48px] text-center text-[11.5px] font-medium tracking-[0.16em] text-slate-500">· {view.year} ·</p>
-              <button onClick={goNext} aria-label="Next month" className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900">
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
+          {/* Calendar header — centered month/year, click to open a month-grid picker */}
+          <div className="relative flex items-center justify-center gap-2">
+            <button
+              onClick={goPrev}
+              aria-label="Previous month"
+              className="absolute left-0 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => {
+                setPickerYear(view.year);
+                setPickerOpen((v) => !v);
+              }}
+              className="flex items-center gap-1.5 rounded-full px-2 py-1 transition hover:bg-slate-50"
+            >
+              <span className="text-[20px] font-semibold uppercase tracking-tight text-slate-900 sm:text-[22px]">
+                {MONTH_NAMES[view.month]}
+              </span>
+              <span className="text-[11.5px] font-medium tracking-[0.16em] text-slate-500">{view.year}</span>
+              <svg className={`h-3.5 w-3.5 text-slate-400 transition-transform ${pickerOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <button
+              onClick={goNext}
+              aria-label="Next month"
+              className="absolute right-0 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            {pickerOpen && (
+              <div className="absolute top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2.5 shadow-lg">
+                <div className="flex items-center justify-between px-1 pb-2">
+                  <button
+                    onClick={() => setPickerYear((y) => y - 1)}
+                    aria-label="Previous year"
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <span className="text-[12.5px] font-semibold tracking-tight text-slate-900">{pickerYear}</span>
+                  <button
+                    onClick={() => setPickerYear((y) => y + 1)}
+                    aria-label="Next year"
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  {MONTH_NAMES.map((m, idx) => {
+                    const isActive = idx === view.month && pickerYear === view.year;
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          setView({ year: pickerYear, month: idx });
+                          setPickerOpen(false);
+                        }}
+                        className={`rounded-lg px-1.5 py-1.5 text-[11px] font-medium transition ${
+                          isActive
+                            ? "bg-slate-900 text-white"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        }`}
+                      >
+                        {m.slice(0, 3)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Day-of-week header */}
