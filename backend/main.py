@@ -574,15 +574,8 @@ async def get_cached_dashboard():
     return {"dashboard": dashboard_data, "analytics": analytics_data}
 
 
-@app.get("/api/admin/export")
-async def export_dashboard_excel():
-    """Export the full cached attendance dataset as a month-wise Excel workbook."""
-    import io
-    from datetime import datetime as _dt
-    from collections import OrderedDict
-    import openpyxl
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-
+def _rebuild_export_dashboard_data() -> dict:
+    """Shared by both export endpoints: rebuilds (or falls back to cached) dashboard data."""
     dashboard_data = None
     cfg = _read_config()
 
@@ -625,6 +618,19 @@ async def export_dashboard_excel():
             detail="Export source has no valid attendance dates. Check the attendance workbook tabs and source configuration.",
         )
 
+    return dashboard_data
+
+
+@app.get("/api/admin/export")
+async def export_dashboard_excel():
+    """Export the full cached attendance dataset as a month-wise Excel workbook."""
+    import io
+    from datetime import datetime as _dt
+    from collections import OrderedDict
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    dashboard_data = _rebuild_export_dashboard_data()
     employees = dashboard_data.get("employees", [])
     dates = dashboard_data.get("dates_processed", [])
 
@@ -792,7 +798,14 @@ async def export_dashboard_excel():
         headers.append("Total Hours")
         style_header_row(ws, 2, headers)
 
-        for idx, emp in enumerate(employees, 1):
+        month_dates_set = set(month_dates)
+        employees_with_data = []
+        employees_no_data = []
+        for emp in employees:
+            has_data = any(day.get("date") in month_dates_set for day in emp.get("daily", []))
+            (employees_with_data if has_data else employees_no_data).append(emp)
+
+        for idx, emp in enumerate(employees_with_data, 1):
             row = idx + 2
             daily_map = {day["date"]: day for day in emp.get("daily", [])}
 
@@ -927,6 +940,16 @@ async def export_dashboard_excel():
             for col in range(1, 5):
                 ws.cell(row=row, column=col).border = thin_border
 
+        if employees_no_data:
+            no_data_row = len(employees_with_data) + 4
+            heading_cell = ws.cell(row=no_data_row, column=1, value="No Data Found")
+            heading_cell.font = Font(bold=True, size=11, color="B91C1C")
+            ws.merge_cells(start_row=no_data_row, start_column=1, end_row=no_data_row, end_column=total_cols)
+            for offset, emp in enumerate(employees_no_data, 1):
+                list_row = no_data_row + offset
+                ws.cell(row=list_row, column=2, value=emp["emp_id"]).alignment = center
+                ws.cell(row=list_row, column=3, value=emp["name"])
+
         ws.column_dimensions["A"].width = 6
         ws.column_dimensions["B"].width = 12
         ws.column_dimensions["C"].width = 28
@@ -1009,6 +1032,184 @@ async def export_dashboard_excel():
             "Access-Control-Expose-Headers": "Content-Disposition",
         },
     )
+
+
+@app.get("/api/admin/export-employee-summary")
+async def export_employee_summary_excel():
+    """Export one Excel workbook with a per-employee, month-by-month summary:
+    weekly hours worked, month total, and average hours/week. Employees/months
+    with no real activity (missing or all-Absent) are excluded and listed under
+    a 'Missing Data' section instead."""
+    import io
+    from datetime import datetime as _dt
+    from collections import OrderedDict
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    dashboard_data = _rebuild_export_dashboard_data()
+    employees = dashboard_data.get("employees", [])
+    dates = dashboard_data.get("dates_processed", [])
+
+    date_objs = [_dt.strptime(d, "%Y-%m-%d") for d in dates]
+    dates_by_month: OrderedDict[str, list[str]] = OrderedDict()
+    for d_obj, date_str in zip(date_objs, dates):
+        dates_by_month.setdefault(d_obj.strftime("%Y-%m"), []).append(date_str)
+
+    def week_label_for(date_str: str) -> str:
+        day = _dt.strptime(date_str, "%Y-%m-%d").day
+        return f"Week {((day - 1) // 7) + 1}"
+
+    max_weeks = max(
+        (len({week_label_for(d) for d in month_dates}) for month_dates in dates_by_month.values()),
+        default=0,
+    )
+
+    def hhmm(total_minutes: int) -> str:
+        hours, mins = divmod(round(total_minutes), 60)
+        return f"{hours:02d}:{mins:02d}"
+
+    header_fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True, size=10)
+    name_font = Font(bold=True, size=13)
+    bold_font = Font(bold=True, size=10)
+    center = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style="thin", color="D1D5DB"),
+        right=Side(style="thin", color="D1D5DB"),
+        top=Side(style="thin", color="D1D5DB"),
+        bottom=Side(style="thin", color="D1D5DB"),
+    )
+
+    headers = (
+        ["Month", "Employee ID", "Employee Name"]
+        + [f"Week {i} Hours" for i in range(1, max_weeks + 1)]
+        + ["Total Hours", "Avg Hours/Week"]
+    )
+    total_cols = len(headers)
+
+    def style_header_row(ws, row: int, values: list[str]) -> None:
+        for col, value in enumerate(values, 1):
+            cell = ws.cell(row=row, column=col, value=value)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = thin_border
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Employee Summary"
+
+    row_cursor = 1
+    missing_entries: list[tuple[str, str, str]] = []
+
+    for emp in employees:
+        daily_map = {day["date"]: day for day in emp.get("daily", []) if day.get("date")}
+        month_rows: list[tuple[str, dict, int]] = []
+
+        for month_key, month_dates in dates_by_month.items():
+            month_label = _dt.strptime(month_key, "%Y-%m").strftime("%B %Y")
+
+            has_real_data = False
+            week_minutes: "OrderedDict[str, int]" = OrderedDict()
+            for date_str in month_dates:
+                wl = week_label_for(date_str)
+                week_minutes.setdefault(wl, 0)
+                day = daily_map.get(date_str)
+                if not day:
+                    continue
+                status_type = day.get("status_type", "")
+                if status_type != "absent":
+                    has_real_data = True
+                if status_type in ("present", "weekend_worked"):
+                    week_minutes[wl] += day.get("total_minutes") or 0
+
+            if not has_real_data:
+                missing_entries.append((emp["emp_id"], emp["name"], month_label))
+                continue
+
+            month_rows.append((month_label, week_minutes, sum(week_minutes.values())))
+
+        if not month_rows:
+            continue
+
+        ws.cell(row=row_cursor, column=1, value=emp["name"])
+        ws.cell(row=row_cursor, column=1).font = name_font
+        ws.merge_cells(start_row=row_cursor, start_column=1, end_row=row_cursor, end_column=total_cols)
+        row_cursor += 1
+
+        style_header_row(ws, row_cursor, headers)
+        row_cursor += 1
+
+        for month_label, week_minutes, total_minutes in month_rows:
+            ws.cell(row=row_cursor, column=1, value=month_label).border = thin_border
+            emp_id_cell = ws.cell(row=row_cursor, column=2, value=emp["emp_id"])
+            emp_id_cell.alignment = center
+            emp_id_cell.border = thin_border
+            ws.cell(row=row_cursor, column=3, value=emp["name"]).border = thin_border
+
+            week_labels_this_month = list(week_minutes.keys())
+            for i in range(1, max_weeks + 1):
+                col = 3 + i
+                cell = ws.cell(row=row_cursor, column=col)
+                cell.border = thin_border
+                cell.alignment = center
+                if i <= len(week_labels_this_month):
+                    cell.value = hhmm(week_minutes[week_labels_this_month[i - 1]])
+
+            total_col = 3 + max_weeks + 1
+            avg_col = total_col + 1
+            total_cell = ws.cell(row=row_cursor, column=total_col, value=hhmm(total_minutes))
+            total_cell.alignment = center
+            total_cell.border = thin_border
+            total_cell.font = bold_font
+
+            num_weeks_this_month = len(week_labels_this_month) or 1
+            avg_cell = ws.cell(row=row_cursor, column=avg_col, value=hhmm(total_minutes / num_weeks_this_month))
+            avg_cell.alignment = center
+            avg_cell.border = thin_border
+
+            row_cursor += 1
+
+        row_cursor += 2
+
+    if missing_entries:
+        heading_cell = ws.cell(row=row_cursor, column=1, value="Missing Data")
+        heading_cell.font = Font(bold=True, size=13, color="B91C1C")
+        ws.merge_cells(start_row=row_cursor, start_column=1, end_row=row_cursor, end_column=total_cols)
+        row_cursor += 1
+
+        style_header_row(ws, row_cursor, ["Employee ID", "Employee Name", "Month"])
+        row_cursor += 1
+
+        for emp_id, name, month_label in missing_entries:
+            id_cell = ws.cell(row=row_cursor, column=1, value=emp_id)
+            id_cell.alignment = center
+            id_cell.border = thin_border
+            ws.cell(row=row_cursor, column=2, value=name).border = thin_border
+            ws.cell(row=row_cursor, column=3, value=month_label).border = thin_border
+            row_cursor += 1
+
+    ws.column_dimensions["A"].width = 18
+    ws.column_dimensions["B"].width = 14
+    ws.column_dimensions["C"].width = 26
+    for i in range(1, max_weeks + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(3 + i)].width = 13
+    ws.column_dimensions[openpyxl.utils.get_column_letter(3 + max_weeks + 1)].width = 14
+    ws.column_dimensions[openpyxl.utils.get_column_letter(3 + max_weeks + 2)].width = 16
+
+    output = io.BytesIO()
+    wb.save(output)
+    excel_bytes = output.getvalue()
+
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="Employee_Summary_Report.xlsx"',
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
+    )
+
 
 @app.get("/api/admin/underperformers")
 async def get_underperformers_from_cache(
