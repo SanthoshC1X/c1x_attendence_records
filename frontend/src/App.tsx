@@ -116,6 +116,21 @@ export default function App() {
     }
   };
 
+  const handleExportEmployeeSummary = async () => {
+    try {
+      const res = await axios.get("/api/admin/export-employee-summary", { responseType: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([res.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }));
+      a.download = "Employee_Summary_Report.xlsx";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch {
+      setError("Export failed. Make sure the dashboard is loaded.");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem(SESSION_KEY);
     setStage("login");
@@ -196,6 +211,7 @@ export default function App() {
       onUploadNew={handleUploadNew}
       onLogout={handleLogout}
       onExport={handleDownload}
+      onExportEmployeeSummary={handleExportEmployeeSummary}
     >
       {dashboard.errors.length > 0 && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900 shadow-sm">
