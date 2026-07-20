@@ -60,6 +60,7 @@ interface Props {
   onLogout: () => void;
   onExport: () => void;
   onExportEmployeeSummary: () => void;
+  onExportLeaveSummary: () => void;
   children: ReactNode;
 }
 
@@ -74,6 +75,7 @@ export default function AppShell({
   onUploadNew,
   onExport,
   onExportEmployeeSummary,
+  onExportLeaveSummary,
   children,
 }: Props) {
   const liveTone =
@@ -163,6 +165,15 @@ export default function AppShell({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.59a1 1 0 01.7.29l5.42 5.42a1 1 0 01.29.7V19a2 2 0 01-2 2z" />
                   </svg>
                   Export Employee Summary
+                </button>
+                <button
+                  onClick={onExportLeaveSummary}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:border-slate-900 hover:text-slate-950"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h3m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.59a1 1 0 01.7.29l5.42 5.42a1 1 0 01.29.7V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export Leave Summary
                 </button>
               </div>
             </div>
