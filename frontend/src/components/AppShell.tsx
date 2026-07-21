@@ -64,6 +64,10 @@ interface Props {
   children: ReactNode;
 }
 
+function todayLabel(): string {
+  return new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 export default function AppShell({
   activePage,
   dashboard,
@@ -73,6 +77,7 @@ export default function AppShell({
   availableYears,
   onNavigate,
   onUploadNew,
+  onLogout,
   onExport,
   onExportEmployeeSummary,
   onExportLeaveSummary,
@@ -80,106 +85,110 @@ export default function AppShell({
 }: Props) {
   const liveTone =
     liveStatus === "connected"
-      ? "bg-emerald-100/80 text-emerald-900 ring-1 ring-emerald-200"
+      ? "bg-lime-300 text-lime-950"
       : liveStatus === "connecting"
-        ? "bg-amber-100/80 text-amber-900 ring-1 ring-amber-200"
-        : "bg-slate-200/70 text-slate-700 ring-1 ring-slate-300";
+        ? "bg-amber-200 text-amber-900"
+        : "bg-slate-200 text-slate-600";
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(247,148,29,0.10),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(13,148,136,0.08),_transparent_26%),linear-gradient(180deg,_#fbfaf7_0%,_#f7f8fb_45%,_#eef1f6_100%)] text-slate-900">
-      {/* Sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-20 lg:flex lg:w-64">
-        <aside className="m-4 flex w-full flex-col rounded-[28px] border border-slate-200/80 bg-white/95 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur">
-          <div className="px-2 pb-4 pt-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">Attendance</p>
-            <p className="mt-1 text-[15px] font-semibold tracking-tight text-slate-950">Workspace</p>
-          </div>
-          <nav className="flex-1 space-y-1.5 overflow-y-auto pr-1">
-            {navItems.map((item) => {
-              const isActive = item.key === activePage;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => onNavigate(item.key)}
-                  className={`w-full rounded-2xl border px-3.5 py-3 text-left transition-all ${
-                    isActive
-                      ? "border-slate-200 bg-slate-50 text-slate-950 shadow-sm"
-                      : "border-transparent bg-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-950"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={`rounded-xl p-2 ${isActive ? "bg-white text-slate-900 ring-1 ring-slate-200" : "bg-slate-100 text-slate-500"}`}>{item.icon}</span>
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold tracking-tight">{item.label}</p>
-                      <p className={`truncate text-[11px] ${isActive ? "text-slate-500" : "text-slate-400"}`}>{item.description}</p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-      </div>
+    <div className="min-h-screen bg-[#e7e8ec] p-4 text-slate-900">
+      <div className="mx-auto flex max-w-[1500px] gap-4">
+        {/* Sidebar */}
+        <div className="hidden lg:flex lg:w-64 lg:shrink-0">
+          <aside className="flex w-full flex-col rounded-[28px] bg-white p-4 shadow-[0_10px_40px_-12px_rgba(15,23,42,0.08)]">
+            <div className="flex items-center gap-2 px-2 pb-6 pt-1">
+              <span className="text-[18px] font-black text-slate-950">%</span>
+              <p className="text-[17px] font-bold tracking-tight text-slate-950">C1X</p>
+            </div>
+            <nav className="flex-1 space-y-1.5">
+              {navItems.map((item) => {
+                const isActive = item.key === activePage;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => onNavigate(item.key)}
+                    className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left transition-all ${
+                      isActive
+                        ? "bg-lime-300 text-slate-950"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <span className={isActive ? "text-slate-950" : "text-slate-400"}>{item.icon}</span>
+                    <p className="text-[13.5px] font-semibold tracking-tight">{item.label}</p>
+                  </button>
+                );
+              })}
+            </nav>
 
-      <div className="lg:ml-64">
-        {/* Sticky top header — title row + global period selector */}
-        <header className="sticky top-0 z-10 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl">
-          <div className="px-4 pt-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div className="mt-6 space-y-3 border-t border-slate-100 pt-4">
+              <div className="flex items-center gap-3 rounded-2xl px-1">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lime-200 text-[13px] font-bold text-slate-900">
+                  A
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-slate-900">Admin</p>
+                  <p className="truncate text-[11px] text-slate-400">System Admin</p>
+                </div>
+              </div>
+              <button
+                onClick={onLogout}
+                className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-[12.5px] font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Log Out
+              </button>
+            </div>
+          </aside>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {/* Header */}
+          <div className="rounded-[28px] bg-white/60 px-1 pb-2">
+            <div className="flex flex-col gap-3 px-4 pt-3 sm:px-2 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-slate-400">{pageTitles[activePage]}</p>
-                <h1 className="mt-1 text-[26px] font-semibold tracking-tight text-slate-950 sm:text-[30px]">
-                  {pageTitles[activePage]}
-                </h1>
-                <p className="mt-1 text-[13px] text-slate-500">{pageDescriptions[activePage]}</p>
+                <h1 className="text-[28px] font-bold tracking-tight text-slate-950">{pageTitles[activePage]}</h1>
+                <p className="mt-0.5 text-[13px] text-slate-400">{todayLabel()} · {pageDescriptions[activePage]}</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold ${liveTone}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${liveStatus === "connected" ? "bg-emerald-500" : liveStatus === "connecting" ? "bg-amber-500" : "bg-slate-400"}`} />
+                <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold ${liveTone}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${liveStatus === "connected" ? "bg-lime-700" : liveStatus === "connecting" ? "bg-amber-600" : "bg-slate-400"}`} />
                   {liveStatus === "connected" ? "Live" : liveStatus === "connecting" ? "Connecting" : "Offline"}
                 </div>
                 <button
                   onClick={onUploadNew}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm transition hover:text-slate-950"
+                  aria-label="Refresh"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.58m14.84 2A8 8 0 004.58 9M20 20v-5h-.58m0 0A8 8 0 015.06 13" />
                   </svg>
-                  Refresh
                 </button>
                 <button
                   onClick={onExport}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:border-slate-900 hover:text-slate-950"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[12px] font-semibold text-slate-700 shadow-sm transition hover:text-slate-950"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.59a1 1 0 01.7.29l5.42 5.42a1 1 0 01.29.7V19a2 2 0 01-2 2z" />
-                  </svg>
                   Export
                 </button>
                 <button
                   onClick={onExportEmployeeSummary}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:border-slate-900 hover:text-slate-950"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[12px] font-semibold text-slate-700 shadow-sm transition hover:text-slate-950"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.59a1 1 0 01.7.29l5.42 5.42a1 1 0 01.29.7V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Export Employee Summary
+                  Employee Summary
                 </button>
                 <button
                   onClick={onExportLeaveSummary}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:border-slate-900 hover:text-slate-950"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-lime-300 px-3.5 py-1.5 text-[12px] font-semibold text-slate-950 shadow-sm transition hover:bg-lime-400"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h3m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.59a1 1 0 01.7.29l5.42 5.42a1 1 0 01.29.7V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Export Leave Summary
+                  Leave Summary
                 </button>
               </div>
             </div>
 
             {/* Mobile nav strip */}
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+            <div className="mt-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:px-2 lg:hidden">
               {navItems.map((item) => {
                 const isActive = item.key === activePage;
                 return (
@@ -187,7 +196,7 @@ export default function AppShell({
                     key={item.key}
                     onClick={() => onNavigate(item.key)}
                     className={`shrink-0 rounded-full px-4 py-1.5 text-[12px] font-semibold transition ${
-                      isActive ? "bg-slate-950 text-white shadow-sm" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:text-slate-950"
+                      isActive ? "bg-lime-300 text-slate-950" : "bg-white text-slate-600 hover:text-slate-950"
                     }`}
                   >
                     {item.shortLabel}
@@ -198,18 +207,17 @@ export default function AppShell({
 
             {/* Unified period selector (hidden on Employees page) */}
             {activePage !== "employees" && (
-              <div className="mt-3 pb-3">
+              <div className="mt-2 px-4 pb-2 sm:px-2">
                 <PeriodSelector period={periodState} actions={periodActions} availableYears={availableYears} />
               </div>
             )}
-            {activePage === "employees" && <div className="pb-3" />}
           </div>
-        </header>
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
-          {children}
-          {activePage !== "employees" && <OverviewFooter dashboard={dashboard} period={periodState} />}
-        </main>
+          <main className="px-1 py-4">
+            {children}
+            {activePage !== "employees" && <OverviewFooter dashboard={dashboard} period={periodState} />}
+          </main>
+        </div>
       </div>
     </div>
   );

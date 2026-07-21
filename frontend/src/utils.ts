@@ -145,6 +145,21 @@ export function describePeriod(period: PeriodState): string {
   }
 }
 
+// ── Data-quality helpers ─────────────────────────────────────────────────────
+// A day only counts as "real" attendance data if someone actually recorded
+// presence/leave/WFH/comp-off for it. "absent" and "holiday" (and blank
+// pre-joining rows) are NOT proof of a properly-marked record — an employee
+// whose entire selected period is nothing but those is almost always a sign
+// their sheet wasn't uploaded for that period, not that they were absent
+// every single day.
+const REAL_ATTENDANCE_STATUSES = new Set([
+  "present", "weekend_worked", "wfh", "leave", "half_leave", "comp_off", "lwd",
+]);
+
+export function isRealAttendanceDay(day: Pick<DailyEntry, "status_type">): boolean {
+  return REAL_ATTENDANCE_STATUSES.has(day.status_type);
+}
+
 // ── Avatar color ─────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [

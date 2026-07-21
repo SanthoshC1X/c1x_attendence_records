@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { EmployeeDashboard } from "../types";
+import { isRealAttendanceDay } from "../utils";
 
 interface Props {
   employees: EmployeeDashboard[];
@@ -60,7 +61,7 @@ export default function MonthlyHoursThresholdCard({ employees, datesProcessed }:
       let hasRealData = false;
       for (const day of emp.daily) {
         if (!day.date.startsWith(effectiveMonthKey)) continue;
-        if (day.status_type) hasRealData = true;
+        if (isRealAttendanceDay(day)) hasRealData = true;
         actualMinutes += workedMinutes(day.status_type, day.total_minutes);
       }
       if (hasRealData && actualMinutes < thresholdMinutes) {
@@ -77,17 +78,17 @@ export default function MonthlyHoursThresholdCard({ employees, datesProcessed }:
   if (availableMonths.length === 0) return null;
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-slate-200/70 bg-white/90 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+    <div className="overflow-hidden rounded-[24px] bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-[24px] bg-teal-700 px-5 py-4">
         <div>
-          <h3 className="text-[14px] font-semibold tracking-tight text-slate-900">Below monthly hours target</h3>
-          <p className="mt-0.5 text-[12px] text-slate-500">
+          <h3 className="text-[14px] font-semibold tracking-tight text-white">Below monthly hours target</h3>
+          <p className="mt-0.5 text-[12px] text-teal-100">
             Target: 8h × {result.weekdayCount} weekdays = {fmtHours(result.thresholdMinutes)}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <MonthPicker months={availableMonths} value={effectiveMonthKey} onChange={setSelMonthKey} />
-          <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-800 ring-1 ring-rose-200">
+          <span className="rounded-full bg-lime-300 px-2.5 py-0.5 text-[11px] font-semibold text-slate-950">
             {result.below.length}
           </span>
         </div>
@@ -102,13 +103,13 @@ export default function MonthlyHoursThresholdCard({ employees, datesProcessed }:
               <li key={emp.emp_id} className="flex items-center justify-between px-5 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-medium text-slate-900">{emp.name}</p>
-                  <p className="truncate text-[11.5px] text-slate-500">{emp.department || "—"} · ID {emp.emp_id}</p>
+                  <p className="truncate text-[11.5px] text-slate-400">{emp.department || "—"} · ID {emp.emp_id}</p>
                 </div>
                 <div className="ml-3 shrink-0 text-right">
-                  <p className="text-[13px] font-semibold text-rose-700 tabular-nums">
+                  <p className="text-[13px] font-semibold text-rose-600 tabular-nums">
                     {fmtHours(actualMinutes)} / {fmtHours(result.thresholdMinutes)}
                   </p>
-                  <p className="text-[11px] text-slate-500">short by {fmtHours(result.thresholdMinutes - actualMinutes)}</p>
+                  <p className="text-[11px] text-slate-400">short by {fmtHours(result.thresholdMinutes - actualMinutes)}</p>
                 </div>
               </li>
             ))}
@@ -116,7 +117,7 @@ export default function MonthlyHoursThresholdCard({ employees, datesProcessed }:
           {result.below.length > 6 && (
             <button
               onClick={() => setExpanded((v) => !v)}
-              className="w-full border-t border-slate-100 px-5 py-2.5 text-center text-[12px] font-semibold text-slate-600 hover:bg-slate-50"
+              className="w-full border-t border-slate-100 px-5 py-2.5 text-center text-[12px] font-semibold text-teal-700 hover:bg-slate-50"
             >
               {expanded ? "Show less" : `Show all ${result.below.length}`}
             </button>
@@ -133,15 +134,15 @@ function MonthPicker({ months, value, onChange }: { months: string[]; value: str
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-full border border-slate-200 bg-white px-3.5 py-1.5 pr-8 text-[12px] font-medium text-slate-700 outline-none transition focus:border-slate-900"
+        className="appearance-none rounded-full bg-white/15 px-3.5 py-1.5 pr-8 text-[12px] font-medium text-white outline-none transition focus:bg-white/25"
       >
         {months.map((key) => {
           const [yearStr, monthStr] = key.split("-");
           const label = `${MONTH_NAMES[Number(monthStr) - 1]} ${yearStr}`;
-          return <option key={key} value={key}>{label}</option>;
+          return <option key={key} value={key} className="text-slate-900">{label}</option>;
         })}
       </select>
-      <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
       </svg>
     </div>
