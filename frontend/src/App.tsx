@@ -9,6 +9,8 @@ import AppShell from "./components/AppShell";
 import CEOReportPage from "./pages/CEOReportPage";
 import EmployeesPage from "./pages/EmployeesPage";
 import MissPunchPage from "./pages/MissPunchPage";
+import Button from "./components/ui/Button";
+import { SkeletonDashboard } from "./components/ui/Skeleton";
 
 const _backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 const WS_URL = _backendBase.replace(/^http/, "ws") + "/ws/live";
@@ -101,6 +103,14 @@ export default function App() {
     await loadAdminDashboard();
   }, [loadAdminDashboard]);
 
+  const handleOpenSettings = useCallback(() => {
+    setStage("admin-setup");
+  }, []);
+
+  const handleCancelSettings = useCallback(() => {
+    setStage("dashboard");
+  }, []);
+
   const handleDownload = async () => {
     try {
       const res = await axios.get("/api/admin/export", { responseType: "blob" });
@@ -166,48 +176,40 @@ export default function App() {
   }
 
   if (stage === "admin-setup") {
-    return <AdminSetupPage onConfigured={handleAdminConfigured} />;
+    return (
+      <AdminSetupPage
+        onConfigured={handleAdminConfigured}
+        onCancel={dashboard ? handleCancelSettings : undefined}
+      />
+    );
   }
 
   if (stage === "admin-loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(247,148,29,0.18),_transparent_28%),linear-gradient(180deg,_#fffaf3_0%,_#f8fafc_45%,_#eef2f7_100%)] px-6">
-        <div className="mx-auto max-w-md text-center">
-          {error ? (
-            <div className="space-y-5">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 shadow-sm ring-1 ring-red-200">
-                <svg className="h-6 w-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-slate-950">Failed to load dashboard</p>
-                <p className="text-xs leading-relaxed text-red-500">{error}</p>
-              </div>
-              <button
-                onClick={() => { setError(null); loadAdminDashboard(); }}
-                className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                Retry
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+        {error ? (
+          <div className="mx-auto max-w-md space-y-5 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center border border-red-200 bg-red-50 text-red-500">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[14px] font-semibold text-slate-900">Failed to load dashboard</p>
+              <p className="text-[12.5px] leading-relaxed text-red-500">{error}</p>
+            </div>
+            <Button variant="primary" onClick={() => { setError(null); loadAdminDashboard(); }}>
+              Retry
+            </Button>
+            <div className="pt-1">
+              <button onClick={handleLogout} className="text-[12px] text-slate-400 transition hover:text-slate-600">
+                Back to login
               </button>
-              <div className="pt-1">
-                <button onClick={handleLogout} className="text-xs text-slate-400 transition hover:text-slate-600">
-                  Back to login
-                </button>
-              </div>
             </div>
-          ) : (
-            <div className="rounded-[28px] border border-white/80 bg-white/90 px-8 py-10 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-400 via-orange-400 to-rose-500 shadow-lg shadow-orange-500/30">
-                <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-slate-950/15 border-t-slate-950" />
-              </div>
-              <p className="mt-5 text-lg font-semibold tracking-tight text-slate-950">Loading the live attendance workspace</p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Pulling the latest snapshot from Google Sheets and preparing attendance, leave, and punch insights.
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <SkeletonDashboard />
+        )}
       </div>
     );
   }
@@ -223,6 +225,7 @@ export default function App() {
       periodActions={periodActions}
       availableYears={availableYears}
       onNavigate={(page) => handleNavigate(page)}
+      onOpenSettings={handleOpenSettings}
       onUploadNew={handleUploadNew}
       onLogout={handleLogout}
       onExport={handleDownload}
@@ -230,25 +233,22 @@ export default function App() {
       onExportLeaveSummary={handleExportLeaveSummary}
     >
       {dashboard.errors.length > 0 && (
-        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900 shadow-sm">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-semibold">Parser noticed {dashboard.errors.length} data warning{dashboard.errors.length === 1 ? "" : "s"}.</p>
-            <p className="text-xs text-amber-700">The dashboard is usable, but a few source tabs or rows may need cleanup.</p>
-          </div>
+        <div className="mb-4 flex items-center justify-between gap-3 border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-900">
+          <p className="font-medium">{dashboard.errors.length} data warning{dashboard.errors.length === 1 ? "" : "s"} — a few source rows may need cleanup.</p>
         </div>
       )}
 
       {analyticsLoading && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2.5 text-xs font-medium text-white shadow-lg">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-900 px-3.5 py-2 text-[12px] font-medium text-white shadow-md">
           <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-          Updating analytics...
+          Updating…
         </div>
       )}
 
       {liveUpdateBanner && (
-        <div className="fixed right-6 top-20 z-50 flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+        <div className="fixed right-6 top-20 z-50 flex items-center gap-2 bg-emerald-600 px-3.5 py-2 text-[12px] font-medium text-white shadow-md">
           <span className="h-1.5 w-1.5 rounded-full bg-white" />
-          Dashboard updated from Google Sheets
+          Dashboard updated
         </div>
       )}
 

@@ -335,7 +335,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
         </div>
 
         {/* Calendar card */}
-        <div className="mt-4 rounded-[20px] border border-white/80 bg-white/90 p-3 shadow-[0_24px_60px_-30px_rgba(76,29,149,0.22)] backdrop-blur sm:p-4">
+        <div className="mt-4 rounded-none border border-white/80 bg-white/90 p-3 shadow-[0_24px_60px_-30px_rgba(76,29,149,0.22)] backdrop-blur sm:p-4">
           {/* Calendar header — centered month/year, click to open a month-grid picker */}
           <div className="relative flex items-center justify-center gap-2">
             <button
@@ -431,7 +431,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
           </div>
 
           {/* Day grid — 7 day cells + a slim weekly-total cell per row */}
-          <div className="mt-1.5 grid grid-cols-[repeat(7,minmax(0,1fr))_72px] gap-px overflow-hidden rounded-xl bg-slate-100/70 sm:grid-cols-[repeat(7,minmax(0,1fr))_84px]">
+          <div className="mt-1.5 grid grid-cols-[repeat(7,minmax(0,1fr))_72px] gap-px overflow-hidden rounded-none bg-slate-100/70 sm:grid-cols-[repeat(7,minmax(0,1fr))_84px]">
             {weeks.map((week, wi) => {
               const weekMinutes = weeklyTotals[wi];
               const weekHasMonthDays = week.some((c) => c.inMonth);

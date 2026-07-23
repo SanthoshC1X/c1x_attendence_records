@@ -31,7 +31,7 @@ export default function FileDropZone({ label, description, file, onFile, onClear
 
   return (
     <div
-      className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+      className={`border-2 border-dashed rounded-none p-8 text-center transition-all cursor-pointer ${
         dragActive
           ? isDark ? "border-indigo-400 bg-indigo-950/50" : "border-indigo-400 bg-indigo-50"
           : file

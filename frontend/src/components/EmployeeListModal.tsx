@@ -59,7 +59,7 @@ export default function EmployeeListModal({ open, title, accentDot, employees, o
 
       {/* Modal */}
       <div
-        className={`relative flex w-full max-w-md flex-col overflow-hidden rounded-[24px] border border-white/80 bg-white shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] transition-all duration-200 ${
+        className={`relative flex w-full max-w-md flex-col overflow-hidden rounded-none border border-white/80 bg-white shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] transition-all duration-200 ${
           visible ? "scale-100 opacity-100" : "scale-95 opacity-0"
         }`}
         style={{ maxHeight: "min(640px, 88vh)" }}

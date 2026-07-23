@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { DashboardData, PeriodState } from "../types";
-import { dateInPeriod, describePeriod } from "../utils";
+import { dateInPeriod, describePeriod, isMissPunch } from "../utils";
 
 interface Props {
   dashboard: DashboardData;
@@ -15,10 +15,6 @@ interface Totals {
   absent: number;
   missPunch: number;
   totalMinutes: number;
-}
-
-function isMissPunch(d: { in_time: string; out_time: string; is_weekend?: boolean }) {
-  return !d.is_weekend && d.in_time && d.out_time && d.in_time === d.out_time && d.in_time !== "00:00:00";
 }
 
 export default function OverviewFooter({ dashboard, period }: Props) {

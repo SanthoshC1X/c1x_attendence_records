@@ -1,8 +1,10 @@
 import { useState } from "react";
 import axios from "axios";
+import Button from "../components/ui/Button";
 
 interface Props {
   onConfigured: () => void;
+  onCancel?: () => void;
 }
 
 function extractSheetId(urlOrId: string): string {
@@ -10,7 +12,7 @@ function extractSheetId(urlOrId: string): string {
   return match ? match[1] : urlOrId.trim();
 }
 
-export default function AdminSetupPage({ onConfigured }: Props) {
+export default function AdminSetupPage({ onConfigured, onCancel }: Props) {
   const [attUrl,   setAttUrl]   = useState("");
   const [leaveUrl, setLeaveUrl] = useState("");
   const [apiKey,   setApiKey]   = useState("");
@@ -41,33 +43,34 @@ export default function AdminSetupPage({ onConfigured }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-indigo-100/50 blur-3xl" />
-      </div>
-
       <div className="w-full max-w-lg relative">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-200 mb-4">
+          {onCancel && (
+            <button onClick={onCancel} className="mb-4 text-[12.5px] font-medium text-slate-400 hover:text-slate-700">
+              ← Back to dashboard
+            </button>
+          )}
+          <div className="inline-flex items-center justify-center w-11 h-11 bg-slate-900 mb-4">
             {/* Google Sheets icon */}
-            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Connect Google Sheets</h2>
-          <p className="text-gray-500 text-sm mt-2">
-            Link your sheets once — the dashboard auto-refreshes every 5 minutes.
+          <h2 className="text-xl font-semibold text-gray-900">Connect Google Sheets</h2>
+          <p className="text-gray-500 text-[13px] mt-1.5">
+            Link your sheets once — the dashboard auto-refreshes every 10 minutes.
           </p>
         </div>
 
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl shadow-gray-100/80 p-8 space-y-5">
+        <div className="bg-white border border-gray-200 p-8 space-y-5">
 
           {/* How-to banner */}
-          <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4 space-y-2">
-            <p className="text-xs font-semibold text-indigo-700">How to get a Google API key (5 min)</p>
-            <ol className="text-xs text-indigo-700 space-y-1 list-decimal list-inside leading-relaxed">
-              <li>Go to <span className="font-mono bg-indigo-100 px-1 rounded">console.cloud.google.com</span> → New Project</li>
+          <div className="bg-slate-50 border border-slate-100 p-4 space-y-2">
+            <p className="text-xs font-semibold text-slate-600">How to get a Google API key (5 min)</p>
+            <ol className="text-xs text-slate-500 space-y-1 list-decimal list-inside leading-relaxed">
+              <li>Go to <span className="font-mono bg-slate-200 px-1">console.cloud.google.com</span> → New Project</li>
               <li>Search <span className="font-semibold">"Google Sheets API"</span> → Enable</li>
               <li>APIs &amp; Services → Credentials → <span className="font-semibold">+ Create API Key</span></li>
               <li>Copy the key and paste it below</li>
@@ -85,7 +88,7 @@ export default function AdminSetupPage({ onConfigured }: Props) {
               value={attUrl}
               onChange={(e) => { setAttUrl(e.target.value); setError(null); }}
               placeholder="https://docs.google.com/spreadsheets/d/…/edit"
-              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400 focus:bg-white transition-all"
+              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-slate-900 transition-colors"
             />
             {attUrl.trim() && (
               <p className="mt-1 text-xs text-gray-400">
@@ -105,7 +108,7 @@ export default function AdminSetupPage({ onConfigured }: Props) {
               value={leaveUrl}
               onChange={(e) => setLeaveUrl(e.target.value)}
               placeholder="https://docs.google.com/spreadsheets/d/…/edit"
-              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400 focus:bg-white transition-all"
+              className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-slate-900 transition-colors"
             />
           </div>
 
@@ -120,7 +123,7 @@ export default function AdminSetupPage({ onConfigured }: Props) {
                 value={apiKey}
                 onChange={(e) => { setApiKey(e.target.value); setError(null); }}
                 placeholder="AIzaSy…"
-                className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400 focus:bg-white transition-all"
+                className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 font-mono focus:outline-none focus:border-slate-900 transition-colors"
               />
               <button
                 type="button"
@@ -148,15 +151,16 @@ export default function AdminSetupPage({ onConfigured }: Props) {
           </div>
 
           {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-600 text-sm">
+            <div className="border border-red-200 bg-red-50 p-3 text-red-600 text-[13px]">
               {error}
             </div>
           )}
 
-          <button
+          <Button
+            variant="primary"
             onClick={handleSave}
             disabled={!attUrl.trim() || !apiKey.trim() || saving}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-100"
+            className="w-full py-3 text-[13px]"
           >
             {saving ? (
               <>
@@ -171,7 +175,7 @@ export default function AdminSetupPage({ onConfigured }: Props) {
                 Connect &amp; Load Dashboard
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
