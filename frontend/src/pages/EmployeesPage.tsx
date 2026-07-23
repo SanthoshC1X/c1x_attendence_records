@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
-import type { DashboardData, EmployeeDashboard } from "../types";
-import { avatarColor, initials } from "../utils";
+import type { DashboardData, EmployeeDashboard, DailyEntry } from "../types";
+import { avatarColor, initials, getStatusLabel, statusStyles } from "../utils";
 import EmployeeMonthlyCalendar from "../components/EmployeeMonthlyCalendar";
+import EmptyState from "../components/ui/EmptyState";
 
 interface Props {
   dashboard: DashboardData;
+}
+
+function latestEntry(emp: EmployeeDashboard): DailyEntry | undefined {
+  return emp.daily.length > 0 ? emp.daily[emp.daily.length - 1] : undefined;
 }
 
 export default function EmployeesPage({ dashboard }: Props) {
@@ -28,42 +33,51 @@ export default function EmployeesPage({ dashboard }: Props) {
   );
 
   return (
-    <div className="space-y-5">
-      <div className="relative">
-        <svg className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="space-y-4">
+      <div className="relative max-w-sm">
+        <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or employee ID"
-          className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-[13px] text-slate-900 placeholder-slate-400 outline-none transition focus:border-slate-900"
+          className="w-full border border-slate-200 bg-white py-2 pl-9 pr-3 text-[13px] text-slate-900 placeholder-slate-400 outline-none transition focus:border-slate-900"
         />
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-[24px] border border-dashed border-slate-300 bg-white/70 px-6 py-16 text-center">
-          <p className="text-sm font-semibold text-slate-700">No employees match your search</p>
-          <p className="mt-2 text-sm text-slate-500">Try a shorter name or a different employee ID.</p>
-        </div>
+        <EmptyState
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          }
+          title="No employees match your search"
+          description="Try a shorter name or a different employee ID."
+        />
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((employee) => {
             const color = avatarColor(employee.emp_id);
             const ini = initials(employee.name);
+            const last = latestEntry(employee);
+            const statusLabel = last ? getStatusLabel(last) : "—";
+            const statusCls = last ? (statusStyles[last.status_type] || statusStyles.default) : statusStyles.default;
             return (
               <button
                 key={employee.emp_id}
                 onClick={() => setSelectedId(employee.emp_id)}
-                className="group flex flex-col items-center gap-3 rounded-[22px] border border-slate-200/70 bg-white px-4 py-6 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                className="flex items-center gap-3 border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:shadow-sm"
               >
-                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${color} shadow-sm`}>
-                  <span className="text-[15px] font-semibold text-white">{ini}</span>
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center ${color}`}>
+                  <span className="text-[13px] font-semibold text-white">{ini}</span>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-semibold tracking-tight text-slate-950">{employee.name}</p>
-                  <p className="mt-0.5 text-[11px] tracking-wide text-slate-400">#{employee.emp_id}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13.5px] font-medium text-slate-900">{employee.name}</p>
+                  <p className="truncate text-[11px] text-slate-400">#{employee.emp_id} · {employee.department || "—"}</p>
                 </div>
+                <span className={`shrink-0 px-2 py-0.5 text-[10.5px] font-medium ${statusCls}`}>{statusLabel}</span>
               </button>
             );
           })}

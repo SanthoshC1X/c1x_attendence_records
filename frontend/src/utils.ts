@@ -160,6 +160,25 @@ export function isRealAttendanceDay(day: Pick<DailyEntry, "status_type">): boole
   return REAL_ATTENDANCE_STATUSES.has(day.status_type);
 }
 
+// A single/identical in-out punch — the only "miss punch" shape the source
+// data can express (no way to tell missing-in from missing-out).
+export function isMissPunch(d: Pick<DailyEntry, "in_time" | "out_time" | "is_weekend">): boolean {
+  return Boolean(!d.is_weekend && d.in_time && d.out_time && d.in_time === d.out_time && d.in_time !== "00:00:00");
+}
+
+// ── Semantic status colors ───────────────────────────────────────────────────
+// One accent per business meaning, reused across cards, badges, and charts.
+export const SEMANTIC_TONE = {
+  present: { text: "text-emerald-600", dot: "bg-emerald-500", bg: "bg-emerald-50" },
+  wfh: { text: "text-blue-600", dot: "bg-blue-500", bg: "bg-blue-50" },
+  leave: { text: "text-amber-600", dot: "bg-amber-500", bg: "bg-amber-50" },
+  absent: { text: "text-red-600", dot: "bg-red-500", bg: "bg-red-50" },
+  missPunch: { text: "text-orange-600", dot: "bg-orange-500", bg: "bg-orange-50" },
+  neutral: { text: "text-slate-700", dot: "bg-slate-400", bg: "bg-slate-50" },
+} as const;
+
+export type SemanticTone = keyof typeof SEMANTIC_TONE;
+
 // ── Avatar color ─────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [

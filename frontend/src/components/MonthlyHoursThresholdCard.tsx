@@ -78,8 +78,8 @@ export default function MonthlyHoursThresholdCard({ employees, datesProcessed }:
   if (availableMonths.length === 0) return null;
 
   return (
-    <div className="overflow-hidden rounded-[24px] bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-[24px] bg-teal-700 px-5 py-4">
+    <div className="overflow-hidden rounded-none bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-none bg-teal-700 px-5 py-4">
         <div>
           <h3 className="text-[14px] font-semibold tracking-tight text-white">Below monthly hours target</h3>
           <p className="mt-0.5 text-[12px] text-teal-100">
