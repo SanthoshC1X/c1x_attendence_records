@@ -59,7 +59,7 @@ export default function EmployeeListModal({ open, title, accentDot, employees, o
 
       {/* Modal */}
       <div
-        className={`relative flex w-full max-w-md flex-col overflow-hidden rounded-none border border-white/80 bg-white shadow-[0_30px_80px_-20px_rgba(15,23,42,0.35)] transition-all duration-200 ${
+        className={`relative flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl transition-all duration-200 ${
           visible ? "scale-100 opacity-100" : "scale-95 opacity-0"
         }`}
         style={{ maxHeight: "min(640px, 88vh)" }}
@@ -96,7 +96,7 @@ export default function EmployeeListModal({ open, title, accentDot, employees, o
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or employee ID"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-2.5 pl-9 pr-3 text-[13px] text-slate-900 placeholder-slate-400 outline-none transition focus:border-slate-900 focus:bg-white"
+              className="w-full rounded-md border border-slate-200 bg-slate-50/70 py-2.5 pl-9 pr-3 text-[13px] text-slate-900 placeholder-slate-400 outline-none transition focus:border-slate-900 focus:bg-white"
               autoFocus
             />
           </div>
@@ -117,9 +117,9 @@ export default function EmployeeListModal({ open, title, accentDot, employees, o
                   <li key={emp.emp_id}>
                     <button
                       onClick={() => onSelectEmployee(emp)}
-                      className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-slate-50"
+                      className="flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-slate-50"
                     >
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${color}`}>
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${color}`}>
                         <span className="text-[11px] font-semibold text-white">{ini}</span>
                       </div>
                       <div className="min-w-0 flex-1">
