@@ -61,7 +61,7 @@ export default function MissPunchPage({ dashboard, periodState }: Props) {
           description={`${periodLabel} is clean.`}
         />
       ) : (
-        <div className="border border-slate-200 bg-white">
+        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-2.5">
             <div className="relative flex-1 max-w-xs">
               <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
