@@ -10,7 +10,7 @@ import CEOReportPage from "./pages/CEOReportPage";
 import EmployeesPage from "./pages/EmployeesPage";
 import MissPunchPage from "./pages/MissPunchPage";
 import Button from "./components/ui/Button";
-import { SkeletonDashboard } from "./components/ui/Skeleton";
+import SplashScreen from "./components/ui/SplashScreen";
 
 const _backendBase = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 const WS_URL = _backendBase.replace(/^http/, "ws") + "/ws/live";
@@ -185,31 +185,28 @@ export default function App() {
   }
 
   if (stage === "admin-loading") {
+    if (!error) return <SplashScreen />;
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        {error ? (
-          <div className="mx-auto max-w-md space-y-5 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center border border-red-200 bg-red-50 text-red-500">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <div className="space-y-2">
-              <p className="text-[14px] font-semibold text-slate-900">Failed to load dashboard</p>
-              <p className="text-[12.5px] leading-relaxed text-red-500">{error}</p>
-            </div>
-            <Button variant="primary" onClick={() => { setError(null); loadAdminDashboard(); }}>
-              Retry
-            </Button>
-            <div className="pt-1">
-              <button onClick={handleLogout} className="text-[12px] text-slate-400 transition hover:text-slate-600">
-                Back to login
-              </button>
-            </div>
+      <div className="flex min-h-screen items-center justify-center bg-white px-6">
+        <div className="mx-auto max-w-md space-y-5 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-500">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </div>
-        ) : (
-          <SkeletonDashboard />
-        )}
+          <div className="space-y-2">
+            <p className="text-[14px] font-semibold text-slate-900">Failed to load dashboard</p>
+            <p className="text-[12.5px] leading-relaxed text-red-500">{error}</p>
+          </div>
+          <Button variant="primary" onClick={() => { setError(null); loadAdminDashboard(); }}>
+            Retry
+          </Button>
+          <div className="pt-1">
+            <button onClick={handleLogout} className="text-[12px] text-slate-400 transition hover:text-slate-600">
+              Back to login
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -253,7 +250,7 @@ export default function App() {
       )}
 
       {activePage === "ceo" && (
-        <CEOReportPage dashboard={dashboard} periodState={periodState} />
+        <CEOReportPage dashboard={dashboard} periodState={periodState} onRefresh={handleUploadNew} />
       )}
       {activePage === "employees" && (
         <EmployeesPage dashboard={dashboard} />

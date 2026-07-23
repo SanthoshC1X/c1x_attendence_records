@@ -15,8 +15,8 @@ export default function StatCard({ label, value, tone = "neutral", hint, onClick
   return (
     <Tag
       onClick={onClick}
-      className={`flex w-full flex-col gap-1 border border-slate-200 bg-white px-4 py-3.5 text-left transition ${
-        onClick ? "cursor-pointer hover:border-slate-300 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10" : ""
+      className={`flex w-full flex-col gap-1 rounded-lg border border-slate-200 bg-white px-4 py-3.5 text-left shadow-sm transition ${
+        onClick ? "cursor-pointer hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-900/10" : ""
       }`}
     >
       <p className="truncate text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>

@@ -16,7 +16,7 @@ export default function Button({ variant = "secondary", className = "", ...props
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-3.5 py-2 text-[12.5px] font-semibold tracking-tight transition disabled:cursor-not-allowed ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3.5 py-2 text-[12.5px] font-semibold tracking-tight transition disabled:cursor-not-allowed ${VARIANTS[variant]} ${className}`}
     />
   );
 }

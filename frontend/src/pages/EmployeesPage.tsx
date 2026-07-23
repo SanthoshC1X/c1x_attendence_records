@@ -68,7 +68,7 @@ export default function EmployeesPage({ dashboard }: Props) {
               <button
                 key={employee.emp_id}
                 onClick={() => setSelectedId(employee.emp_id)}
-                className="flex items-center gap-3 border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:shadow-sm"
+                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md"
               >
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center ${color}`}>
                   <span className="text-[13px] font-semibold text-white">{ini}</span>

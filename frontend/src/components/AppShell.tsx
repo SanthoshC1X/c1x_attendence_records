@@ -99,7 +99,7 @@ function ExportMenu({
         </svg>
       </Button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 w-52 border border-slate-200 bg-white py-1 shadow-md">
+        <div className="absolute right-0 top-full z-30 mt-1 w-52 rounded-lg border border-slate-200 bg-white py-1 shadow-md">
           {items.map((it) => (
             <button
               key={it.label}
@@ -145,7 +145,7 @@ export default function AppShell({
       <div className="mx-auto flex max-w-[1440px] gap-6 px-4 py-4 sm:px-6">
         {/* Sidebar */}
         <div className="hidden lg:flex lg:w-56 lg:shrink-0">
-          <aside className="flex w-full flex-col border border-slate-200 bg-white p-3">
+          <aside className="flex w-full flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-center gap-2 px-2 py-3">
               <span className="text-[16px] font-bold text-slate-900">%</span>
               <p className="text-[14.5px] font-semibold tracking-tight text-slate-900">C1X</p>
@@ -236,7 +236,7 @@ export default function AppShell({
                   <button
                     key={item.key}
                     onClick={() => onNavigate(item.key)}
-                    className={`shrink-0 px-3.5 py-1.5 text-[12px] font-medium transition ${
+                    className={`shrink-0 rounded-md px-3.5 py-1.5 text-[12px] font-medium transition ${
                       isActive ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600"
                     }`}
                   >
@@ -246,7 +246,7 @@ export default function AppShell({
               })}
               <button
                 onClick={onOpenSettings}
-                className="shrink-0 border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-slate-600"
+                className="shrink-0 rounded-md border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-slate-600"
               >
                 Settings
               </button>
