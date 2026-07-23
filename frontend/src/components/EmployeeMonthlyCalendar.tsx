@@ -160,18 +160,22 @@ function classify(
   return { key: "absent", label: "Absent", weight: 1 };
 }
 
+// Five semantic accents app-wide: emerald=Present, blue=WFH, amber=Leave
+// (CL/SL/PL/Comp Off/LWD all share the leave family — the label text still
+// says which type), red=Absent, orange=Miss Punch. Neutral slate for
+// non-status cells (holiday/weekend/future).
 const TONE_STYLES: Record<ClassKey, { bg: string; text: string; dot: string }> = {
-  wfh:           { bg: "bg-teal-50/70",     text: "text-teal-700",     dot: "bg-teal-400" },
-  cl:            { bg: "bg-blue-50/70",     text: "text-blue-700",     dot: "bg-blue-400" },
-  sl:            { bg: "bg-rose-50/70",     text: "text-rose-700",     dot: "bg-rose-400" },
-  pl:            { bg: "bg-violet-50/70",   text: "text-violet-700",   dot: "bg-violet-400" },
-  comp:          { bg: "bg-orange-50/70",   text: "text-orange-700",   dot: "bg-orange-400" },
-  lwd:           { bg: "bg-indigo-50/70",   text: "text-indigo-700",   dot: "bg-indigo-400" },
-  "leave-other": { bg: "bg-indigo-50/70",   text: "text-indigo-700",   dot: "bg-indigo-400" },
+  wfh:           { bg: "bg-blue-50/70",     text: "text-blue-700",     dot: "bg-blue-400" },
+  cl:            { bg: "bg-amber-50/70",    text: "text-amber-700",    dot: "bg-amber-400" },
+  sl:            { bg: "bg-amber-50/70",    text: "text-amber-700",    dot: "bg-amber-400" },
+  pl:            { bg: "bg-amber-50/70",    text: "text-amber-700",    dot: "bg-amber-400" },
+  comp:          { bg: "bg-amber-50/70",    text: "text-amber-700",    dot: "bg-amber-400" },
+  lwd:           { bg: "bg-amber-50/70",    text: "text-amber-700",    dot: "bg-amber-400" },
+  "leave-other": { bg: "bg-amber-50/70",    text: "text-amber-700",    dot: "bg-amber-400" },
   holiday:       { bg: "bg-slate-50",       text: "text-slate-400",    dot: "bg-slate-300" },
   present:       { bg: "bg-emerald-50/60",  text: "text-emerald-700",  dot: "bg-emerald-400" },
-  weekend_worked:{ bg: "bg-amber-50/80",    text: "text-amber-700",    dot: "bg-amber-400" },
-  misspunch:     { bg: "bg-yellow-100/80",  text: "text-yellow-800",   dot: "bg-yellow-500" },
+  weekend_worked:{ bg: "bg-emerald-50/60",  text: "text-emerald-700",  dot: "bg-emerald-400" },
+  misspunch:     { bg: "bg-orange-50/80",   text: "text-orange-700",   dot: "bg-orange-500" },
   absent:        { bg: "bg-red-50/70",      text: "text-red-600",      dot: "bg-red-400" },
   weekend:       { bg: "bg-slate-50/40",    text: "text-slate-300",    dot: "bg-slate-200" },
   future:        { bg: "bg-white",          text: "text-slate-300",    dot: "bg-slate-200" },
@@ -279,23 +283,17 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
 
   const chips: { label: string; value: number; dot: string }[] = [
     { label: "Absent", value: totals.absent, dot: "bg-red-400" },
-    { label: "WFH",    value: totals.wfh,    dot: "bg-teal-400" },
-    { label: "CL",     value: totals.cl,     dot: "bg-blue-400" },
-    { label: "SL",     value: totals.sl,     dot: "bg-rose-400" },
-    { label: "PL",     value: totals.pl,     dot: "bg-violet-400" },
-    { label: "Wknd",   value: totals.ww,     dot: "bg-amber-400" },
-    { label: "Miss Punch", value: totals.mp, dot: "bg-yellow-500" },
+    { label: "WFH",    value: totals.wfh,    dot: "bg-blue-400" },
+    { label: "CL",     value: totals.cl,     dot: "bg-amber-400" },
+    { label: "SL",     value: totals.sl,     dot: "bg-amber-400" },
+    { label: "PL",     value: totals.pl,     dot: "bg-amber-400" },
+    { label: "Wknd",   value: totals.ww,     dot: "bg-emerald-400" },
+    { label: "Miss Punch", value: totals.mp, dot: "bg-orange-500" },
   ];
 
   return (
     <div
-      className={`fixed inset-0 z-50 overflow-y-auto transition-opacity duration-300 ${visible ? "opacity-100" : "opacity-0"}`}
-      style={{
-        background:
-          "radial-gradient(1200px 600px at 20% -10%, rgba(216,180,254,0.35), transparent 60%)," +
-          "radial-gradient(900px 500px at 100% 10%, rgba(186,230,253,0.35), transparent 60%)," +
-          "linear-gradient(180deg, #fbfaff 0%, #f5f3ff 50%, #eef2ff 100%)",
-      }}
+      className={`fixed inset-0 z-50 overflow-y-auto bg-slate-50 transition-opacity duration-300 ${visible ? "opacity-100" : "opacity-0"}`}
     >
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-5 sm:px-6 sm:py-7">
         {/* Close */}
@@ -313,7 +311,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
 
         {/* Header — centered employee identity */}
         <div className="mt-1 text-center">
-          <h1 className="bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 bg-clip-text text-[26px] font-semibold tracking-tight text-transparent sm:text-[32px]">
+          <h1 className="text-[26px] font-semibold tracking-tight text-slate-900 sm:text-[32px]">
             {employee.name}
           </h1>
           <p className="mt-0.5 text-[12px] font-medium text-slate-500">
@@ -335,7 +333,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
         </div>
 
         {/* Calendar card */}
-        <div className="mt-4 rounded-none border border-white/80 bg-white/90 p-3 shadow-[0_24px_60px_-30px_rgba(76,29,149,0.22)] backdrop-blur sm:p-4">
+        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           {/* Calendar header — centered month/year, click to open a month-grid picker */}
           <div className="relative flex items-center justify-center gap-2">
             <button
@@ -431,7 +429,7 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
           </div>
 
           {/* Day grid — 7 day cells + a slim weekly-total cell per row */}
-          <div className="mt-1.5 grid grid-cols-[repeat(7,minmax(0,1fr))_72px] gap-px overflow-hidden rounded-none bg-slate-100/70 sm:grid-cols-[repeat(7,minmax(0,1fr))_84px]">
+          <div className="mt-1.5 grid grid-cols-[repeat(7,minmax(0,1fr))_72px] gap-px overflow-hidden rounded-md bg-slate-100/70 sm:grid-cols-[repeat(7,minmax(0,1fr))_84px]">
             {weeks.map((week, wi) => {
               const weekMinutes = weeklyTotals[wi];
               const weekHasMonthDays = week.some((c) => c.inMonth);
@@ -489,13 +487,13 @@ export default function EmployeeMonthlyCalendar({ employee, onClose }: Props) {
           {/* Legend */}
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-slate-500">
             <LegendDot color="bg-emerald-400" label="Present" />
-            <LegendDot color="bg-amber-400" label="Weekend Worked" />
-            <LegendDot color="bg-teal-400" label="WFH" />
-            <LegendDot color="bg-blue-400" label="Casual Leave" />
-            <LegendDot color="bg-rose-400" label="Sick Leave" />
-            <LegendDot color="bg-violet-400" label="Paid Leave" />
-            <LegendDot color="bg-orange-400" label="Comp Off" />
-            <LegendDot color="bg-yellow-500" label="Miss Punch" />
+            <LegendDot color="bg-emerald-400" label="Weekend Worked" />
+            <LegendDot color="bg-blue-400" label="WFH" />
+            <LegendDot color="bg-amber-400" label="Casual Leave" />
+            <LegendDot color="bg-amber-400" label="Sick Leave" />
+            <LegendDot color="bg-amber-400" label="Paid Leave" />
+            <LegendDot color="bg-amber-400" label="Comp Off" />
+            <LegendDot color="bg-orange-500" label="Miss Punch" />
             <LegendDot color="bg-red-400" label="Absent" />
           </div>
         </div>

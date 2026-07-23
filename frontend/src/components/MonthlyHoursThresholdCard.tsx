@@ -78,17 +78,17 @@ export default function MonthlyHoursThresholdCard({ employees, datesProcessed }:
   if (availableMonths.length === 0) return null;
 
   return (
-    <div className="overflow-hidden rounded-none bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-none bg-teal-700 px-5 py-4">
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-5 py-4">
         <div>
           <h3 className="text-[14px] font-semibold tracking-tight text-white">Below monthly hours target</h3>
-          <p className="mt-0.5 text-[12px] text-teal-100">
+          <p className="mt-0.5 text-[12px] text-slate-300">
             Target: 8h × {result.weekdayCount} weekdays = {fmtHours(result.thresholdMinutes)}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <MonthPicker months={availableMonths} value={effectiveMonthKey} onChange={setSelMonthKey} />
-          <span className="rounded-full bg-lime-300 px-2.5 py-0.5 text-[11px] font-semibold text-slate-950">
+          <span className="rounded-md bg-red-500 px-2.5 py-0.5 text-[11px] font-semibold text-white">
             {result.below.length}
           </span>
         </div>
@@ -117,7 +117,7 @@ export default function MonthlyHoursThresholdCard({ employees, datesProcessed }:
           {result.below.length > 6 && (
             <button
               onClick={() => setExpanded((v) => !v)}
-              className="w-full border-t border-slate-100 px-5 py-2.5 text-center text-[12px] font-semibold text-teal-700 hover:bg-slate-50"
+              className="w-full border-t border-slate-100 px-5 py-2.5 text-center text-[12px] font-semibold text-slate-900 hover:bg-slate-50"
             >
               {expanded ? "Show less" : `Show all ${result.below.length}`}
             </button>
